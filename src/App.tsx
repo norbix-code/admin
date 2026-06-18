@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { NorbixProvider } from '@norbix/react-redux';
 import { ROUTES } from '@/routes';
-import { resolveProjectId } from '@/config/project';
+import { resolveProjectIdAsync } from '@/config/project';
 import { loadProjectConfig, applyBranding } from '@/config/projectConfig';
 import type { ProjectConfig } from '@/types/projectConfig';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { hub } from '@/services/hub';
 import { echoResolved } from '@/config/slice';
-import { projectConfigResolved } from '@/features/project/slice';
+import {
+  projectConfigResolved,
+  projectResolved,
+} from '@/features/project/slice';
 import { setRuntimeApiRoot } from '@/config/runtimeApi';
 import {
   getNorbixClient,
@@ -35,6 +38,7 @@ import { Dashboard, Placeholder } from '@/features/dashboard/dashboard';
 type BootState =
   | { status: 'loading' }
   | { status: 'no-project' }
+  | { status: 'echo-failed' }
   | { status: 'ready'; config: ProjectConfig };
 
 export default function App() {
@@ -51,26 +55,36 @@ export default function App() {
     let cancelled = false;
 
     const resolve = async () => {
-      const projectId = resolveProjectId();
+      // Resolve the project: pin → pr_ subdomain → meta → custom-domain host
+      // lookup against the managed service. Async because the custom-domain
+      // path calls hub.norbix.ai/admin-portal-id.
+      const projectId = await resolveProjectIdAsync();
+      if (cancelled) return;
       if (!projectId) {
-        if (!cancelled) setBoot({ status: 'no-project' });
+        setBoot({ status: 'no-project' });
         return;
       }
-      // Project resolved — let the SDK client be built for it on first use.
+      dispatch(projectResolved(projectId));
+      // Let the SDK client be built for this project on first use.
       setNorbixProjectId(projectId);
 
-      // Discover endpoints/regions/release from the Hub's /echo. Best-effort:
-      // if the Hub is unreachable, the SDK client falls back to the env API
-      // URL, so the portal still works.
+      // Discover endpoints/regions/release from the Hub's /echo. This is
+      // REQUIRED — the API base comes only from echo (no env fallback), so if
+      // echo fails the portal cannot make API calls and shows an error rather
+      // than a broken half-loaded UI.
       try {
         const echo = await dispatch(hub.endpoints.echo.initiate()).unwrap();
-        if (!cancelled) {
-          dispatch(echoResolved(echo));
-          setRuntimeApiRoot(echo);
-          if (echo.apiUrl) setNorbixApiBase(echo.apiUrl, echo.apiVersion);
+        if (cancelled) return;
+        dispatch(echoResolved(echo));
+        setRuntimeApiRoot(echo);
+        if (!echo.apiUrl) {
+          setBoot({ status: 'echo-failed' });
+          return;
         }
+        setNorbixApiBase(echo.apiUrl, echo.apiVersion);
       } catch {
-        /* Hub unavailable — fall back to env-configured API URL. */
+        if (!cancelled) setBoot({ status: 'echo-failed' });
+        return;
       }
       if (cancelled) return;
 
@@ -99,6 +113,18 @@ export default function App() {
 
   if (boot.status === 'no-project') {
     return <Placeholder />;
+  }
+
+  if (boot.status === 'echo-failed') {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 px-4 text-center">
+        <p className="text-lg font-medium text-fg">Service unavailable</p>
+        <p className="text-sm text-fg-muted">
+          Could not reach the service to load this portal. Please try again
+          shortly.
+        </p>
+      </div>
+    );
   }
 
   const { config } = boot;

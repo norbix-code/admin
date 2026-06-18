@@ -25,12 +25,7 @@ import type {
   AuthMethod,
   PasswordPolicy,
 } from '@/types/projectConfig';
-import {
-  CONFIG_MODE,
-  IS_DEV,
-  HAS_CUSTOM_API_BASE,
-  HAS_CUSTOM_HUB_BASE,
-} from './env';
+import { CONFIG_MODE, IS_DEV, HAS_CUSTOM_HUB_BASE } from './env';
 import { getRuntimeApiRoot } from './runtimeApi';
 
 // ── Neutral defaults ────────────────────────────────────────────────
@@ -208,7 +203,7 @@ export async function loadProjectConfig(
   // public endpoint (brand + safe auth always; sensitive auth only if exposed).
   let resolved = merge(NEUTRAL_DEFAULTS, await loadStatic(projectId));
 
-  const skipRemote = IS_DEV && !HAS_CUSTOM_API_BASE && !HAS_CUSTOM_HUB_BASE;
+  const skipRemote = IS_DEV && !HAS_CUSTOM_HUB_BASE;
   if (!skipRemote) {
     try {
       const remote = await loadDynamicConfig(projectId);

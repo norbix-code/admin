@@ -11,8 +11,7 @@
 
 import { Norbix } from '@norbix.ai/ts';
 import { createNorbixApi } from '@norbix/react-redux';
-import { resolveProjectId } from '@/config/project';
-import { API_BASE_URL, API_VERSION } from '@/config/env';
+import { API_VERSION } from '@/config/env';
 
 interface ClientParams {
   apiBaseUrl: string;
@@ -21,10 +20,13 @@ interface ClientParams {
   bearerToken: string | undefined;
 }
 
+// The API base is empty until /echo resolves (setNorbixApiBase) and the project
+// id is set once resolved (setNorbixProjectId). The portal blocks the UI on echo
+// + project resolution, so no request is made before both are set.
 let params: ClientParams = {
-  apiBaseUrl: API_BASE_URL,
+  apiBaseUrl: '',
   apiVersion: API_VERSION,
-  projectId: resolveProjectId() ?? undefined,
+  projectId: undefined,
   bearerToken: undefined,
 };
 

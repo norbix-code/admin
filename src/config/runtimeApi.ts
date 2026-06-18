@@ -7,10 +7,12 @@
 // They read the resolved root from here, falling back to the env value before
 // echo has resolved.
 
-import { API_ROOT_FALLBACK } from './env';
 import type { EchoResponse } from '@/types/echo';
 
-let apiRoot = API_ROOT_FALLBACK;
+// Empty until /echo resolves. The portal blocks the UI on echo, so the two
+// out-of-store callers (public config fetch during boot, OAuth/passkey
+// full-page navigation) only read this after it's set.
+let apiRoot = '';
 
 export function setRuntimeApiRoot(echo: EchoResponse): void {
   if (echo.apiUrl) apiRoot = echo.apiUrl.replace(/\/$/, '');

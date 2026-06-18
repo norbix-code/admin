@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { selectApiRoot, selectRegions } from './slice';
-import { API_ROOT_FALLBACK } from './env';
+import { selectApiRoot, selectApiReady, selectRegions } from './slice';
 import type { RootState } from '@/app/store';
 import type { EchoResponse } from '@/types/echo';
 
@@ -41,8 +40,13 @@ describe('selectApiRoot', () => {
     ).toBe('http://localhost:5002/v3');
   });
 
-  it('falls back to the env API root when echo has not resolved', () => {
-    expect(selectApiRoot(stateWith(null))).toBe(API_ROOT_FALLBACK);
+  it('is empty (no fallback) until echo resolves', () => {
+    expect(selectApiRoot(stateWith(null))).toBe('');
+  });
+
+  it('selectApiReady reflects whether echo has resolved an apiUrl', () => {
+    expect(selectApiReady(stateWith(null))).toBe(false);
+    expect(selectApiReady(stateWith(echo))).toBe(true);
   });
 });
 
