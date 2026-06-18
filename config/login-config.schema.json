@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Norbix Admin static login config",
+  "description": "Per-project login screen config. Filename (minus .json) is the project id.",
+  "type": "object",
+  "required": ["branding", "auth", "links"],
+  "additionalProperties": false,
+  "properties": {
+    "branding": {
+      "type": "object",
+      "required": ["displayName"],
+      "additionalProperties": false,
+      "properties": {
+        "displayName": { "type": "string" },
+        "mainColor": { "type": "string", "pattern": "^#([0-9A-Fa-f]{6})$" },
+        "accentColor": { "type": "string", "pattern": "^#([0-9A-Fa-f]{6})$" },
+        "logoUrl": { "type": "string" },
+        "iconUrl": { "type": "string" },
+        "backgroundUrl": { "type": "string" }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "required": ["socialProviders", "passkey", "methods", "passwordPolicy"],
+      "additionalProperties": false,
+      "properties": {
+        "socialProviders": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["google", "github", "facebook", "apple", "microsoft"]
+          }
+        },
+        "passkey": { "type": "boolean" },
+        "methods": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["email", "phone", "username"] }
+        },
+        "passwordPolicy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minLength": { "type": "integer", "minimum": 0 },
+            "maxLength": { "type": "integer" },
+            "minNumbers": { "type": "integer" },
+            "minUpper": { "type": "integer" },
+            "minLower": { "type": "integer" },
+            "minSpecial": { "type": "integer" },
+            "allowedSpecial": { "type": "string" }
+          }
+        },
+        "exposed": { "type": "boolean" }
+      }
+    },
+    "links": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "termsUrl": { "type": "string" },
+        "privacyUrl": { "type": "string" }
+      }
+    }
+  }
+}

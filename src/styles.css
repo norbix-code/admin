@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Design tokens.
+ *
+ * The whole portal is themed through these CSS custom properties. A
+ * downstream developer can re-skin the open-source portal by overriding any
+ * of these in their own stylesheet (loaded after this file) — no component
+ * edits, no fork. See docs/theming.md.
+ *
+ * Tailwind's theme (tailwind.config.cjs) maps `brand`, `surface`, `border`,
+ * `radius`, `font`, etc. onto these variables, so utility classes like
+ * `bg-brand`, `rounded-token`, `text-fg` all follow the tokens.
+ * ────────────────────────────────────────────────────────────────────── */
+:root {
+  /* Brand / accent. Defaults are conservative: Norbix blue used sparingly on a
+   * neutral grey/white canvas. Overridden per-project at runtime from the Hub
+   * Brand settings (MainColor → --admin-primary, AccentColor → --admin-accent). */
+  --admin-primary: #0a558c; /* Norbix blue — primary accent */
+  --admin-primary-hover: #094a7b;
+  --admin-primary-fg: #ffffff;
+  --admin-accent: #2680c2; /* secondary accent, used sparingly */
+
+  /* Surfaces & text */
+  --admin-bg: #f4f7fa; /* app background            */
+  --admin-surface: #ffffff; /* cards, inputs, sidebars   */
+  --admin-fg: #102a43; /* primary text              */
+  --admin-fg-muted: #486581; /* secondary text            */
+  --admin-fg-subtle: #627d98; /* hints, captions           */
+  --admin-border: #d9e2ec; /* borders, dividers         */
+
+  /* Status colors */
+  --admin-danger: #d64545;
+  --admin-danger-fg: #ffffff;
+  --admin-success-bg: #ecfdf3;
+  --admin-success-fg: #1a7f4b;
+  --admin-error-bg: #fef2f2;
+  --admin-error-fg: #b42318;
+  --admin-info-bg: #eaf3fb;
+  --admin-info-fg: #0a558c;
+
+  /* Shape */
+  --admin-radius: 0.5rem; /* default corner radius     */
+  --admin-radius-sm: 0.375rem;
+  --admin-radius-lg: 0.75rem;
+
+  /* Spacing scale knob (multiplies the base unit used by spacing-token) */
+  --admin-space: 0.25rem;
+
+  /* Typography */
+  --admin-font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--admin-font-sans);
+  background: var(--admin-bg);
+  color: var(--admin-fg);
+}

@@ -1,0 +1,24 @@
+Norbix Admin Portal
+Copyright (c) UAB Isidos
+
+Licensed under the MIT License.
+
+Runtime dependencies (intentionally minimal):
+  - React, React DOM   (MIT)
+  - Redux Toolkit      (MIT)  @reduxjs/toolkit
+  - React Redux        (MIT)  react-redux
+  - React Router       (MIT)  react-router-dom
+  - redux-persist      (MIT)
+
+There is NO UI-component-library dependency. All UI primitives and icons in
+src/components are original work, built with plain React + Tailwind CSS (MIT).
+
+Clean-room UI policy
+--------------------
+The UI components in src/components are NOT derived from Tailwind UI / Catalyst,
+which is a separately licensed commercial product. Contributors must not copy
+markup or class compositions from Tailwind UI into this repository. Using the
+open-source Tailwind CSS framework itself is fine.
+
+Keeping the dependency surface minimal is also a security choice — see
+SECURITY.md.

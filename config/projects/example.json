@@ -1,0 +1,20 @@
+{
+  "branding": {
+    "displayName": "Laimingas Pilvukas",
+    "mainColor": "#0A558C",
+    "accentColor": "#2680C2",
+    "logoUrl": "",
+    "iconUrl": ""
+  },
+  "auth": {
+    "socialProviders": ["google", "apple"],
+    "passkey": false,
+    "methods": ["email"],
+    "passwordPolicy": { "minLength": 3 },
+    "exposed": true
+  },
+  "links": {
+    "termsUrl": "/legal/terms",
+    "privacyUrl": "/legal/privacy"
+  }
+}

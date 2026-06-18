@@ -1,0 +1,44 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      // The RTK lib is consumed from source (not published, no dist). Point
+      // tsc at its source so types resolve, matching the Vite alias.
+      "@norbix/react-redux": ["../sdks/norbix-react-redux/src/index.ts"],
+      // Resolve the core SDK to SOURCE for both the admin's `@norbix.ai/ts`
+      // import and the lib's internal `import ... from 'norbix'`. This way
+      // tsc sees the same code the Vite dev loop runs, so new SDK endpoints
+      // type-check without first rebuilding the SDK's dist. (Matches the
+      // `@norbix/react-redux` source mapping above.)
+      "norbix": ["../sdks/norbix-js/src/index.ts"],
+      "@norbix.ai/ts": ["../sdks/norbix-js/src/index.ts"]
+    },
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+
+    "allowJs": false,
+    "esModuleInterop": false,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
+}
