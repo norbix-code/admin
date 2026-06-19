@@ -3,3 +3,6 @@ dist
 .env
 *.local
 .DS_Store
+
+# Next.js
+.next/

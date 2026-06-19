@@ -47,6 +47,13 @@ export interface EchoResponse {
   apiVersion: string;
   hubVersion: string;
   mjmlUrl: string;
+  /**
+   * Canonical Admin-Portal URL template for this deployment, with a literal
+   * `{projectId}` placeholder, e.g. `https://{projectId}.admin.norbix.ai`.
+   * Substitute the project id to get a concrete URL. Null when no admin host is
+   * configured. (Per-project custom overrides live on the project read model.)
+   */
+  adminUrlTemplate?: string | null;
   license?: EchoLicense | null;
   askForEnterpriseLicenseEmail?: string | null;
   regions?: EchoRegion[] | null;

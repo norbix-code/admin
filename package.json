@@ -6,26 +6,29 @@
   "license": "MIT",
   "engines": { "node": ">=22.12" },
   "scripts": {
-    "dev": "vite --host localhost --port 3100",
-    "dev:link": "NORBIX_LINK=1 vite --host localhost --port 3100",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit",
+    "dev": "next dev -p 3100",
+    "build": "next build",
+    "start": "next start -p 3100",
     "lint": "eslint .",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
-    "test": "vitest run"
+    "format": "prettier --write \"{src,app}/**/*.{ts,tsx,css}\"",
+    "format:check": "prettier --check \"{src,app}/**/*.{ts,tsx,css}\"",
+    "test": "vitest run",
+    "_vite:dev": "vite --host localhost --port 3100",
+    "_vite:dev:link": "NORBIX_LINK=1 vite --host localhost --port 3100",
+    "_vite:build": "tsc -b && vite build"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",
     "@norbix.ai/ts": "file:../sdks/norbix-js",
     "@norbix/react-redux": "file:../sdks/norbix-react-redux",
     "@reduxjs/toolkit": "^2.12.0",
+    "next": "^15.5.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-redux": "^9.3.0",
     "react-router-dom": "^7.18.0",
-    "redux-persist": "^6.0.0"
+    "redux-persist": "^6.0.0",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

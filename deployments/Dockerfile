@@ -1,64 +1,60 @@
 # syntax=docker/dockerfile:1.7
 #
-# Production Dockerfile for the Norbix Admin Portal (React + Vite + TS).
+# Single self-hostable image for the Norbix Admin Portal (Next.js, app router).
 #
-# Flavor is selected at build time via VITE_ADMIN_RELEASE. The same Dockerfile
-# builds all flavors — the difference is runtime UI behavior gated on the flag.
+# One container serves BOTH the React UI and the BFF route handlers (app/api/*)
+# from one Node process — no separate static server, no Vercel. Built from
+# Next's `output: 'standalone'`.
 #
-#   docker build --build-arg VITE_ADMIN_RELEASE=ManagedService -t admin:managed .
-#   docker build --build-arg VITE_ADMIN_RELEASE=SelfHosted \
-#                --build-arg VITE_ADMIN_PROJECT_ID=7Hk2 -t admin:selfhosted .
+# Unlike the old Vite image, configuration is RUNTIME (read by the Node server),
+# not baked into the bundle. Pass env at `docker run` / in k8s:
+#   ADMIN_BFF_API_KEY        — service-user API key (server-only; never shipped to the browser)
+#   ADMIN_BFF_HUB_BASE_URL   — e.g. https://hub.norbix.ai
+#   ADMIN_BFF_API_BASE_URL   — e.g. https://api.norbix.ai
+#   NEXT_PUBLIC_*            — anything the browser needs (config mode, etc.)
 #
-# Multi-arch via buildx in CI. Build stage pins to $BUILDPLATFORM so node
-# tooling runs native; runtime is a multi-arch nginx:alpine manifest.
+#   docker build -f deployments/Dockerfile -t norbix-admin .
+#   docker run -p 3100:3100 -e ADMIN_BFF_API_KEY=... norbix-admin
 
 ARG NODE_VERSION=22
-ARG NGINX_VERSION=1.27
 
 # ─────────────────────────────────────────────────────────────────
-# 1) Build stage
+# 1) Dependencies
 # ─────────────────────────────────────────────────────────────────
-FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-alpine AS build
+FROM node:${NODE_VERSION}-alpine AS deps
 WORKDIR /app
-
-ARG VITE_ADMIN_RELEASE=ManagedService
-ARG VITE_ADMIN_HUB_BASE_URL
-ARG VITE_ADMIN_HUB_VERSION=v3
-ARG VITE_ADMIN_API_BASE_URL
-ARG VITE_ADMIN_API_VERSION=v3
-ARG VITE_ADMIN_PROJECT_ID
-ENV VITE_ADMIN_RELEASE=${VITE_ADMIN_RELEASE} \
-    VITE_ADMIN_HUB_BASE_URL=${VITE_ADMIN_HUB_BASE_URL} \
-    VITE_ADMIN_HUB_VERSION=${VITE_ADMIN_HUB_VERSION} \
-    VITE_ADMIN_API_BASE_URL=${VITE_ADMIN_API_BASE_URL} \
-    VITE_ADMIN_API_VERSION=${VITE_ADMIN_API_VERSION} \
-    VITE_ADMIN_PROJECT_ID=${VITE_ADMIN_PROJECT_ID} \
-    NODE_ENV=production \
-    NPM_CONFIG_FUND=false \
-    NPM_CONFIG_AUDIT=false
-
-# Lockfile first for layer caching.
 COPY package.json package-lock.json* ./
 RUN --mount=type=cache,target=/root/.npm \
     (npm ci --prefer-offline || npm install)
 
+# ─────────────────────────────────────────────────────────────────
+# 2) Build (produces .next/standalone)
+# ─────────────────────────────────────────────────────────────────
+FROM node:${NODE_VERSION}-alpine AS build
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-# `npm run build` runs `tsc && vite build` — typecheck failure fails the image.
 RUN npm run build
 
 # ─────────────────────────────────────────────────────────────────
-# 2) Runtime stage
+# 3) Runtime — minimal standalone server
 # ─────────────────────────────────────────────────────────────────
-FROM nginx:${NGINX_VERSION}-alpine AS runtime
+FROM node:${NODE_VERSION}-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3100 HOSTNAME=0.0.0.0
 
-RUN rm /etc/nginx/conf.d/default.conf
-COPY deployments/nginx/default.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/dist /usr/share/nginx/html
+# Non-root.
+RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
-USER nginx
-EXPOSE 8080
-CMD ["nginx", "-g", "daemon off;"]
+# Standalone bundle + static assets + public dir.
+COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=build --chown=nextjs:nodejs /app/public ./public
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget -q -O /dev/null --spider http://127.0.0.1:8080/healthz || exit 1
+USER nextjs
+EXPOSE 3100
+CMD ["node", "server.js"]
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD wget -q -O /dev/null --spider http://127.0.0.1:3100/ || exit 1
