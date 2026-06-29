@@ -7,11 +7,12 @@ import {
   Middleware,
   MiddlewareAPI,
 } from '@reduxjs/toolkit';
+import { IS_DEV } from '@/config/env';
 
 export const rtkQueryErrorLogger: Middleware =
   (_api: MiddlewareAPI) => (next) => (action) => {
     if (isRejectedWithValue(action)) {
-      if (import.meta.env.DEV) {
+      if (IS_DEV) {
         console.warn('[api] request rejected', action.payload);
       }
     }

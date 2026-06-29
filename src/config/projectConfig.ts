@@ -61,9 +61,22 @@ const CACHE_KEY = (projectId: string) =>
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 // Static configs bundled from /config/projects/*.json (filename = project id).
-const staticModules = import.meta.glob<{ default: StaticProjectConfig }>(
-  '../../config/projects/*.json',
-);
+// `import.meta.glob` is a Vite-only compile-time macro; under Next it is
+// undefined, so the static-config fast path is simply unavailable there (the
+// dynamic public-endpoint path is used instead). Guard the access so the module
+// loads under both bundlers.
+type StaticModuleMap = Record<
+  string,
+  () => Promise<{ default: StaticProjectConfig }>
+>;
+
+const staticModules: StaticModuleMap = (() => {
+  const glob = (import.meta as unknown as { glob?: unknown }).glob;
+  if (typeof glob !== 'function') return {};
+  return (
+    glob as (p: string) => StaticModuleMap
+  )('../../config/projects/*.json');
+})();
 
 function staticPathFor(projectId: string): string | undefined {
   return Object.keys(staticModules).find((p) =>

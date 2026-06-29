@@ -34,6 +34,7 @@ import { publicApi } from '@/services/publicApi';
 import { hub } from '@/services/hub';
 import auth from '@/features/auth/slice';
 import config from '@/config/slice';
+import { IS_DEV } from '@/config/env';
 import project from '@/features/project/slice';
 import { listenerMiddleware } from '@/app/middlewares/listener';
 import { rtkQueryErrorLogger } from '@/app/middlewares/errorCatching';
@@ -89,7 +90,7 @@ export const createStore = (
 ) =>
   configureStore({
     reducer: rootReducer,
-    devTools: import.meta.env.DEV,
+    devTools: IS_DEV,
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware({
         serializableCheck: {

@@ -15,7 +15,7 @@
 //
 // Runtime is Node (not edge) because the SDK + the key live server-side.
 import { NextRequest, NextResponse } from 'next/server';
-import { serviceClientForProject, hasServiceKey } from '@/app/lib/serverNorbix';
+import { serviceClientForProject, hasServiceKey } from '../../lib/serverNorbix';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

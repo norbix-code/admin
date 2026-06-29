@@ -18,7 +18,7 @@
     "plugins": [{ "name": "next" }],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
+      "@/*": ["./src/*"],
       "@norbix/react-redux": ["../sdks/norbix-react-redux/src/index.ts"],
       "norbix": ["../sdks/norbix-js/src/index.ts"],
       "@norbix.ai/ts": ["../sdks/norbix-js/src/index.ts"]

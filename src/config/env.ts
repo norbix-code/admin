@@ -1,9 +1,13 @@
-// Build-time configuration, read from Vite's import.meta.env.
+// Build-time browser configuration.
 //
-// The Hub URL is the single required endpoint: on boot the portal calls the
-// Hub's GET /{version}/echo, which returns the API URL, regions, release, and
-// license. So the API URL is normally DISCOVERED, not configured — the env
-// API values below are only a fallback when echo is unavailable.
+// The portal runs under two bundlers during the Vite → Next migration, so each
+// value is read from BOTH sources and the first defined one wins:
+//   • Next.js   → process.env.NEXT_PUBLIC_ADMIN_*  (inlined at build)
+//   • Vite      → import.meta.env.VITE_ADMIN_*     (inlined at build)
+// Once the Vite entry is removed, only the NEXT_PUBLIC_* names remain.
+//
+// The Hub URL is the single endpoint you set; the API URL is DISCOVERED from
+// the Hub's /echo at boot (the portal blocks until echo resolves).
 
 interface ImportMetaEnv {
   VITE_ADMIN_CONFIG_MODE?: string;
@@ -12,7 +16,30 @@ interface ImportMetaEnv {
   VITE_ADMIN_PROJECT_ID?: string;
 }
 
-const env = (import.meta as unknown as { env: ImportMetaEnv }).env;
+// Vite exposes import.meta.env; Next does not (it would be undefined). Guard the
+// access so reading it under Next never throws.
+const viteEnv: ImportMetaEnv =
+  (import.meta as unknown as { env?: ImportMetaEnv }).env ?? {};
+
+/**
+ * Read a config value by its suffix (e.g. "CONFIG_MODE"), trying the Next
+ * NEXT_PUBLIC_ADMIN_<suffix> first, then the Vite VITE_ADMIN_<suffix>.
+ */
+function readEnv(suffix: string): string | undefined {
+  const next =
+    typeof process !== 'undefined' && process.env
+      ? process.env[`NEXT_PUBLIC_ADMIN_${suffix}`]
+      : undefined;
+  if (next) return next;
+  return (viteEnv as Record<string, string | undefined>)[`VITE_ADMIN_${suffix}`];
+}
+
+const env = {
+  VITE_ADMIN_CONFIG_MODE: readEnv('CONFIG_MODE'),
+  VITE_ADMIN_HUB_BASE_URL: readEnv('HUB_BASE_URL'),
+  VITE_ADMIN_HUB_VERSION: readEnv('HUB_VERSION'),
+  VITE_ADMIN_PROJECT_ID: readEnv('PROJECT_ID'),
+} satisfies ImportMetaEnv;
 
 // Release/runtime (ManagedService | SelfHosted | Enterprise) is NOT configured
 // here — it is discovered from the Hub's /echo response at boot (see the config
@@ -64,7 +91,8 @@ export const PINNED_PROJECT_ID: string | undefined =
     ? env.VITE_ADMIN_PROJECT_ID
     : undefined;
 
-/** True only during `vite dev`. Used to enable local dev conveniences. */
-export const IS_DEV: boolean = Boolean(
-  (import.meta as unknown as { env: { DEV?: boolean } }).env.DEV,
-);
+/** True in local dev. Reads Vite's DEV flag, falling back to NODE_ENV (Next). */
+export const IS_DEV: boolean =
+  Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV) ||
+  (typeof process !== 'undefined' &&
+    process.env?.NODE_ENV !== 'production');
