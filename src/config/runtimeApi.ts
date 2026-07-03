@@ -8,14 +8,17 @@
 // echo has resolved.
 
 import type { EchoResponse } from '@/types/echo';
+import { API_PROXY_ROOT } from './env';
 
-// Empty until /echo resolves. The portal blocks the UI on echo, so the two
-// out-of-store callers (public config fetch during boot, OAuth/passkey
-// full-page navigation) only read this after it's set.
-let apiRoot = '';
+// The API root is the same-origin BFF proxy (/api/proxy/api/v3), available
+// immediately — the browser never targets the gateway host. echo no longer
+// determines the base URL; it is kept for regions/release only.
+const apiRoot = API_PROXY_ROOT;
 
-export function setRuntimeApiRoot(echo: EchoResponse): void {
-  if (echo.apiUrl) apiRoot = echo.apiUrl.replace(/\/$/, '');
+// Kept for call-site compatibility during the migration. The proxy base is
+// fixed, so resolving echo no longer changes the API root.
+export function setRuntimeApiRoot(_echo: EchoResponse): void {
+  /* no-op: the API root is the same-origin proxy, not echo's apiUrl */
 }
 
 export function getRuntimeApiRoot(): string {

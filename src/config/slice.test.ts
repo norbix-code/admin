@@ -28,24 +28,18 @@ const stateWith = (e: EchoResponse | null) =>
   ({ config: { echo: e } }) as unknown as RootState;
 
 describe('selectApiRoot', () => {
-  it('uses the apiUrl discovered from echo', () => {
-    expect(selectApiRoot(stateWith(echo))).toBe('http://localhost:5002/v3');
+  // The API root is the same-origin BFF proxy — the browser never targets the
+  // gateway host. So it is fixed and does NOT depend on echo.
+  it('is the same-origin BFF proxy root', () => {
+    expect(selectApiRoot(stateWith(echo))).toBe('/api/proxy/api/v3');
   });
 
-  it('strips a trailing slash from the echo apiUrl', () => {
-    expect(
-      selectApiRoot(
-        stateWith({ ...echo, apiUrl: 'http://localhost:5002/v3/' }),
-      ),
-    ).toBe('http://localhost:5002/v3');
+  it('is available even before echo resolves (proxy is same-origin)', () => {
+    expect(selectApiRoot(stateWith(null))).toBe('/api/proxy/api/v3');
   });
 
-  it('is empty (no fallback) until echo resolves', () => {
-    expect(selectApiRoot(stateWith(null))).toBe('');
-  });
-
-  it('selectApiReady reflects whether echo has resolved an apiUrl', () => {
-    expect(selectApiReady(stateWith(null))).toBe(false);
+  it('selectApiReady is always true (proxy is same-origin)', () => {
+    expect(selectApiReady(stateWith(null))).toBe(true);
     expect(selectApiReady(stateWith(echo))).toBe(true);
   });
 });

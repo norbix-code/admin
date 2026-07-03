@@ -32,6 +32,7 @@ import { norbixApi } from '@/services/norbix';
 import { api } from '@/services/api';
 import { publicApi } from '@/services/publicApi';
 import { hub } from '@/services/hub';
+import { portalApi } from '@/services/portalApi';
 import auth from '@/features/auth/slice';
 import config from '@/config/slice';
 import { IS_DEV } from '@/config/env';
@@ -54,6 +55,7 @@ const reducers = combineReducers({
   [norbixApi.reducerPath]: norbixApi.reducer,
   [api.reducerPath]: api.reducer,
   [publicApi.reducerPath]: publicApi.reducer,
+  [portalApi.reducerPath]: portalApi.reducer,
 });
 
 const PERSIST_KEY = 'norbix-admin';
@@ -68,6 +70,7 @@ const persistConfig = {
     norbixApi.reducerPath,
     api.reducerPath,
     publicApi.reducerPath,
+    portalApi.reducerPath,
   ],
 };
 
@@ -106,6 +109,7 @@ export const createStore = (
           norbixApi.middleware,
           api.middleware,
           publicApi.middleware,
+          portalApi.middleware,
           rtkQueryErrorLogger,
         ),
     preloadedState: options,

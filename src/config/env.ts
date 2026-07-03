@@ -11,8 +11,6 @@
 
 interface ImportMetaEnv {
   VITE_ADMIN_CONFIG_MODE?: string;
-  VITE_ADMIN_HUB_BASE_URL?: string;
-  VITE_ADMIN_HUB_VERSION?: string;
   VITE_ADMIN_PROJECT_ID?: string;
 }
 
@@ -22,23 +20,34 @@ const viteEnv: ImportMetaEnv =
   (import.meta as unknown as { env?: ImportMetaEnv }).env ?? {};
 
 /**
- * Read a config value by its suffix (e.g. "CONFIG_MODE"), trying the Next
- * NEXT_PUBLIC_ADMIN_<suffix> first, then the Vite VITE_ADMIN_<suffix>.
+ * Pick the Next value (already inlined as a LITERAL by the caller) first, then
+ * fall back to the Vite VITE_ADMIN_<suffix>.
+ *
+ * IMPORTANT: Next.js only inlines `process.env.NEXT_PUBLIC_*` when it appears
+ * as a LITERAL member access in the source. A computed access like
+ * `process.env[`NEXT_PUBLIC_ADMIN_${suffix}`]` is NOT replaced and always reads
+ * `undefined` in the browser bundle. So the literal `process.env.NEXT_PUBLIC_*`
+ * reads must live at the call sites below — not behind a dynamic key.
  */
-function readEnv(suffix: string): string | undefined {
-  const next =
-    typeof process !== 'undefined' && process.env
-      ? process.env[`NEXT_PUBLIC_ADMIN_${suffix}`]
-      : undefined;
-  if (next) return next;
-  return (viteEnv as Record<string, string | undefined>)[`VITE_ADMIN_${suffix}`];
+function pick(nextValue: string | undefined, viteSuffix: string): string | undefined {
+  if (nextValue) return nextValue;
+  return (viteEnv as Record<string, string | undefined>)[`VITE_ADMIN_${viteSuffix}`];
 }
 
+// Literal reads so Next can statically inline them. Guard `process` for the
+// Vite build where it may be undefined.
+const NEXT_CONFIG_MODE =
+  typeof process !== 'undefined' && process.env
+    ? process.env.NEXT_PUBLIC_ADMIN_CONFIG_MODE
+    : undefined;
+const NEXT_PROJECT_ID =
+  typeof process !== 'undefined' && process.env
+    ? process.env.NEXT_PUBLIC_ADMIN_PROJECT_ID
+    : undefined;
+
 const env = {
-  VITE_ADMIN_CONFIG_MODE: readEnv('CONFIG_MODE'),
-  VITE_ADMIN_HUB_BASE_URL: readEnv('HUB_BASE_URL'),
-  VITE_ADMIN_HUB_VERSION: readEnv('HUB_VERSION'),
-  VITE_ADMIN_PROJECT_ID: readEnv('PROJECT_ID'),
+  VITE_ADMIN_CONFIG_MODE: pick(NEXT_CONFIG_MODE, 'CONFIG_MODE'),
+  VITE_ADMIN_PROJECT_ID: pick(NEXT_PROJECT_ID, 'PROJECT_ID'),
 } satisfies ImportMetaEnv;
 
 // Release/runtime (ManagedService | SelfHosted | Enterprise) is NOT configured
@@ -61,29 +70,30 @@ export const CONFIG_MODE: AdminConfigMode =
     ? 'static'
     : 'dynamic';
 
-// ── Hub (entry point) ───────────────────────────────────────────────
-const DEFAULT_HUB_BASE_URL = 'https://hub.norbix.ai';
+// ── Gateway access goes through the same-origin server proxy ────────
+// The browser NEVER talks to the gateway directly. It calls the portal
+// backend's reverse proxy at /api/proxy/{hub|api}/..., and the backend
+// re-targets to the real Hub/API (HUB_BASE_URL / API_BASE_URL on the server,
+// with fallbacks to hub.norbix.ai / api.norbix.ai). So the browser needs no
+// gateway host env at all — these bases are same-origin relative paths.
 
-export const HUB_BASE_URL: string =
-  env.VITE_ADMIN_HUB_BASE_URL || DEFAULT_HUB_BASE_URL;
-
-export const HUB_VERSION: string = env.VITE_ADMIN_HUB_VERSION || 'v3';
-
-/** Full Hub root, e.g. https://hub.norbix.ai/v3 — used for the /echo call. */
-export const HUB_ROOT = `${HUB_BASE_URL.replace(/\/$/, '')}/${HUB_VERSION}`;
-
-export const HAS_CUSTOM_HUB_BASE: boolean = Boolean(
-  env.VITE_ADMIN_HUB_BASE_URL && env.VITE_ADMIN_HUB_BASE_URL.length > 0,
-);
-
-// ── API ─────────────────────────────────────────────────────────────
-// The API base is NOT configured — it is ALWAYS discovered from the Hub's
-// /echo response (echo.apiUrl, already versioned). The portal blocks the UI
-// until echo resolves (see App boot), so there is no env override and no
-// pre-echo fallback: nothing calls the API before echo is in.
-
-/** Default API version used only until /echo returns its own apiVersion. */
 export const API_VERSION = 'v3';
+
+/** Same-origin proxy root for Hub calls (e.g. /api/proxy/hub/v3). */
+export const HUB_ROOT = `/api/proxy/hub/${API_VERSION}`;
+
+/** Same-origin proxy root for API calls (e.g. /api/proxy/api/v3). */
+export const API_PROXY_ROOT = `/api/proxy/api/${API_VERSION}`;
+
+/** Bare API proxy base (no version) for the SDK, which appends {version}. */
+export const API_PROXY_BASE = '/api/proxy/api';
+
+/** Bare Hub proxy base (no version) for the SDK. */
+export const HUB_PROXY_BASE = '/api/proxy/hub';
+
+// Static-config skip-remote heuristic used `HAS_CUSTOM_HUB_BASE` before; with
+// the proxy there is no custom hub base, so dynamic config always runs in dev.
+export const HAS_CUSTOM_HUB_BASE = false;
 
 /** Optional build-time project pin (self-hosted custom-domain builds). */
 export const PINNED_PROJECT_ID: string | undefined =
@@ -91,7 +101,11 @@ export const PINNED_PROJECT_ID: string | undefined =
     ? env.VITE_ADMIN_PROJECT_ID
     : undefined;
 
-/** True in local dev. Reads Vite's DEV flag, falling back to NODE_ENV (Next). */
+// IS_DEV = "is this a local development BUILD" (NODE_ENV !== 'production').
+// It only toggles developer conveniences: Redux DevTools and the skip-remote
+// config heuristic. It is NOT the Norbix project environment (PROD / staging /
+// test) — that is the `norbix-env` header, set from the server `ENV` var
+// (self-hosted) or derived from the host (managed). The two are unrelated.
 export const IS_DEV: boolean =
   Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV) ||
   (typeof process !== 'undefined' &&

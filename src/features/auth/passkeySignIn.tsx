@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { Button, TextField, Alert, Spinner } from '@/components/ui';
+import { Form } from 'react-final-form';
+import { Button, Alert, Spinner } from '@/components/ui';
+import { TextInputField } from '@/components/forms/fields';
+import {
+  composeValidators,
+  emailValidator,
+  requiredTrimmedValidator,
+} from '@/components/forms/validators';
 import { useAppDispatch } from '@/app/hooks';
 import { signedIn } from './slice';
 import {
@@ -22,15 +29,12 @@ export function PasskeySignInButton() {
   const [verify] = useVerifyPasskeyAuthenticationMutation();
 
   const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState('');
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isWebAuthnAvailable()) return null;
 
-  const run = async () => {
+  const run = async ({ email }: { email: string }) => {
     setError(null);
-    setBusy(true);
     try {
       const opts = await getOptions({ email }).unwrap();
       const assertionResponse = await getPasskeyAssertion(opts.optionsJson);
@@ -49,8 +53,6 @@ export function PasskeySignInButton() {
           ? 'Passkey sign-in was cancelled or timed out.'
           : 'Could not sign in with a passkey. Please try again.',
       );
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -65,21 +67,38 @@ export function PasskeySignInButton() {
   return (
     <div className="flex flex-col gap-2 rounded-token bg-surface p-3 ring-1 ring-inset ring-border-token">
       {error && <Alert kind="error">{error}</Alert>}
-      <TextField
-        type="email"
-        label="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        autoComplete="email webauthn"
-      />
-      <div className="flex items-center gap-2">
-        <Button onClick={run} disabled={busy || email.trim() === ''}>
-          {busy ? <Spinner /> : 'Use passkey'}
-        </Button>
-        <Button variant="ghost" onClick={() => setOpen(false)}>
-          Cancel
-        </Button>
-      </div>
+      <Form onSubmit={run} initialValues={{ email: '' }}>
+        {({ handleSubmit, submitting, hasValidationErrors }) => (
+          <form
+            onSubmit={handleSubmit}
+            className="flex flex-col gap-2"
+            noValidate
+          >
+            <TextInputField
+              name="email"
+              type="email"
+              label="Email"
+              autoComplete="email webauthn"
+              validate={composeValidators(
+                requiredTrimmedValidator,
+                emailValidator,
+              )}
+            />
+            <div className="flex items-center gap-2">
+              <Button type="submit" disabled={submitting || hasValidationErrors}>
+                {submitting ? <Spinner /> : 'Use passkey'}
+              </Button>
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => setOpen(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
+      </Form>
     </div>
   );
 }

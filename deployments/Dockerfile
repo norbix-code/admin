@@ -2,19 +2,20 @@
 #
 # Single self-hostable image for the Norbix Admin Portal (Next.js, app router).
 #
-# One container serves BOTH the React UI and the BFF route handlers (app/api/*)
-# from one Node process — no separate static server, no Vercel. Built from
-# Next's `output: 'standalone'`.
+# One container serves BOTH the React UI and the server route handlers
+# (app/api/*) from one Node process — no separate static server, no Vercel.
+# Built from Next's `output: 'standalone'`.
 #
 # Unlike the old Vite image, configuration is RUNTIME (read by the Node server),
 # not baked into the bundle. Pass env at `docker run` / in k8s:
-#   ADMIN_BFF_API_KEY        — service-user API key (server-only; never shipped to the browser)
-#   ADMIN_BFF_HUB_BASE_URL   — e.g. https://hub.norbix.ai
-#   ADMIN_BFF_API_BASE_URL   — e.g. https://api.norbix.ai
-#   NEXT_PUBLIC_*            — anything the browser needs (config mode, etc.)
+#   API_KEY        — service-user API key (server-only; never shipped to the browser)
+#   HUB_BASE_URL   — e.g. https://hub.norbix.ai
+#   API_BASE_URL   — e.g. https://api.norbix.ai
+#   ENV            — optional Norbix environment (staging/test); unset = PROD
+#   NEXT_PUBLIC_*  — anything the browser needs (config mode, etc.)
 #
 #   docker build -f deployments/Dockerfile -t norbix-admin .
-#   docker run -p 3100:3100 -e ADMIN_BFF_API_KEY=... norbix-admin
+#   docker run -p 3100:3100 -e API_KEY=... norbix-admin
 
 ARG NODE_VERSION=22
 

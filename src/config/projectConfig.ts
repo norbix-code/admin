@@ -126,6 +126,8 @@ function merge(
     branding: { ...base.branding, ...(override.branding ?? {}) },
     auth: { ...base.auth, ...(override.auth ?? {}) },
     links: { ...base.links, ...(override.links ?? {}) },
+    adminPortalEnabled:
+      override.adminPortalEnabled ?? base.adminPortalEnabled,
   };
 }
 
@@ -137,6 +139,9 @@ interface PublicConfigResponse {
   // The readable project name — NOT brand-gated, so it's present even when the
   // project does not expose its brand colors/logo. Used as the page title.
   displayName?: string;
+  // Coarse on/off bit for the managed portal (always-safe). Absent on older
+  // gateways → treat as enabled (don't lock out before the flag ships).
+  adminPortalEnabled?: boolean;
   branding?: {
     displayName?: string;
     mainColor?: string;
@@ -161,6 +166,13 @@ async function loadDynamicConfig(
   const r = (await res.json()) as PublicConfigResponse;
 
   const out: Partial<StaticProjectConfig> = {};
+
+  // Coarse managed-portal on/off flag. Absent (older gateway) → undefined here,
+  // which merge() leaves as the default (enabled) so we never lock out the app
+  // before the flag exists server-side.
+  if (typeof r.adminPortalEnabled === 'boolean') {
+    out.adminPortalEnabled = r.adminPortalEnabled;
+  }
 
   // The readable project name comes back top-level (not brand-gated). Prefer it
   // for the display name so the portal shows the project title even when brand

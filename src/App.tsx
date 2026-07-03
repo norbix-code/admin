@@ -39,6 +39,7 @@ type BootState =
   | { status: 'loading' }
   | { status: 'no-project' }
   | { status: 'echo-failed' }
+  | { status: 'portal-disabled' }
   | { status: 'ready'; config: ProjectConfig };
 
 export default function App() {
@@ -72,6 +73,10 @@ export default function App() {
       // REQUIRED — the API base comes only from echo (no env fallback), so if
       // echo fails the portal cannot make API calls and shows an error rather
       // than a broken half-loaded UI.
+      // Managed (Norbix-hosted) flavour comes from /echo `release`. Only the
+      // managed portal honours the coarse disabled flag; self-hosted ignores it
+      // (its service-user key is the truth, not this flag).
+      let isManaged = false;
       try {
         const echo = await dispatch(hub.endpoints.echo.initiate()).unwrap();
         if (cancelled) return;
@@ -82,6 +87,7 @@ export default function App() {
           return;
         }
         setNorbixApiBase(echo.apiUrl, echo.apiVersion);
+        isManaged = echo.release === 'ManagedService';
       } catch {
         if (!cancelled) setBoot({ status: 'echo-failed' });
         return;
@@ -92,6 +98,15 @@ export default function App() {
       // static-only per CONFIG_MODE). Always returns a usable config.
       const config = await loadProjectConfig(projectId);
       if (cancelled) return;
+
+      // Managed portal + explicitly disabled → show "unavailable" instead of the
+      // app. `adminPortalEnabled` defaults to enabled when absent (older gateway)
+      // so we never lock out before the flag ships.
+      if (isManaged && config.adminPortalEnabled === false) {
+        setBoot({ status: 'portal-disabled' });
+        return;
+      }
+
       applyBranding(config);
       dispatch(projectConfigResolved(config));
       setBoot({ status: 'ready', config });
@@ -122,6 +137,17 @@ export default function App() {
         <p className="text-sm text-fg-muted">
           Could not reach the service to load this portal. Please try again
           shortly.
+        </p>
+      </div>
+    );
+  }
+
+  if (boot.status === 'portal-disabled') {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 px-4 text-center">
+        <p className="text-lg font-medium text-fg">Portal unavailable</p>
+        <p className="text-sm text-fg-muted">
+          This portal is currently turned off. Please contact the site owner.
         </p>
       </div>
     );

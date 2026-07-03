@@ -1,31 +1,21 @@
 import { Link } from 'react-router-dom';
+import { skipToken } from '@reduxjs/toolkit/query';
 import { PageHeader, Card } from '@/components/ui';
-import { ROUTES } from '@/routes';
-
-const CARDS = [
-  {
-    to: ROUTES.PROFILE,
-    title: 'Profile',
-    desc: 'Update your contact information.',
-  },
-  {
-    to: ROUTES.SECURITY,
-    title: 'Security',
-    desc: 'Password and two-factor authentication.',
-  },
-  {
-    to: ROUTES.PREFERENCES,
-    title: 'Preferences',
-    desc: 'Choose which messages you receive.',
-  },
-  {
-    to: ROUTES.PRIVACY,
-    title: 'Privacy & data',
-    desc: 'Export or delete your data.',
-  },
-];
+import { useAppSelector } from '@/app/hooks';
+import { selectSelectedProjectId } from '@/features/project/slice';
+import { useGetStructureQuery } from '@/services/portalApi';
+import { navCardsFromStructure } from '@/config/structure';
 
 export function Dashboard() {
+  const projectId = useAppSelector(selectSelectedProjectId);
+  // RTK Query owns the fetch + cache. `skipToken` until a project is resolved.
+  // While loading (or on error) `data` is undefined → the default layout shows.
+  // (The backend picks self-hosted vs managed from API_KEY presence.)
+  const { data: structure } = useGetStructureQuery(
+    projectId ? { projectId } : skipToken,
+  );
+  const cards = navCardsFromStructure(structure);
+
   return (
     <>
       <PageHeader
@@ -33,7 +23,7 @@ export function Dashboard() {
         subtitle="Manage your account settings."
       />
       <div className="grid gap-4 sm:grid-cols-2">
-        {CARDS.map((c) => (
+        {cards.map((c) => (
           <Link key={c.to} to={c.to}>
             <Card className="h-full transition hover:shadow-md">
               <h3 className="text-base font-medium text-fg">{c.title}</h3>

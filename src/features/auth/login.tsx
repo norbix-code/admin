@@ -1,7 +1,14 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { Form } from 'react-final-form';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthLayout } from '@/components/layouts';
-import { Button, TextField, Alert, Spinner } from '@/components/ui';
+import { Button, Alert, Spinner } from '@/components/ui';
+import { TextInputField } from '@/components/forms/fields';
+import {
+  composeValidators,
+  minLengthValidator,
+  requiredValidator,
+} from '@/components/forms/validators';
 import { useLoginMutation } from '@/services/norbix';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { signedIn, selectIsAuthenticated } from './slice';
@@ -41,14 +48,16 @@ function identifierInputType(methods: AuthMethod[]): string {
   return 'text';
 }
 
+interface LoginFormValues {
+  userName: string;
+  password: string;
+}
+
 export function Login({ config }: { config: ProjectConfig }) {
   const [login, { isLoading, isError }] = useLoginMutation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
-
-  const [userName, setUserName] = useState('');
-  const [password, setPassword] = useState('');
 
   const { socialProviders, passkey, methods, passwordPolicy } = config.auth;
 
@@ -56,13 +65,12 @@ export function Login({ config }: { config: ProjectConfig }) {
     if (isAuthenticated) navigate(ROUTES.HOME, { replace: true });
   }, [isAuthenticated, navigate]);
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (values: LoginFormValues) => {
     try {
       const res = await login({
         provider: 'credentials',
-        userName,
-        password,
+        userName: values.userName,
+        password: values.password,
       }).unwrap();
       if (res.bearerToken) {
         dispatch(
@@ -92,45 +100,54 @@ export function Login({ config }: { config: ProjectConfig }) {
 
       {isError && <Alert kind="error">Invalid credentials.</Alert>}
 
-      <form onSubmit={onSubmit} className="mt-4 flex flex-col gap-4">
-        <TextField
-          name="userName"
-          type={identifierInputType(methods)}
-          label={identifierLabel(methods)}
-          autoComplete="username"
-          required
-          value={userName}
-          onChange={(e) => setUserName(e.target.value)}
-        />
-        <TextField
-          name="password"
-          type="password"
-          label="Password"
-          autoComplete="current-password"
-          required
-          minLength={passwordPolicy.minLength}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        {passwordPolicy.minLength > 0 && (
-          <p className="-mt-2 text-xs text-fg-subtle">
-            Minimum {passwordPolicy.minLength} characters
-            {passwordPolicy.minNumbers
-              ? `, ${passwordPolicy.minNumbers} number(s)`
-              : ''}
-            {passwordPolicy.minUpper
-              ? `, ${passwordPolicy.minUpper} uppercase`
-              : ''}
-            {passwordPolicy.minSpecial
-              ? `, ${passwordPolicy.minSpecial} special`
-              : ''}
-            .
-          </p>
+      <Form<LoginFormValues>
+        onSubmit={onSubmit}
+        initialValues={{ userName: '', password: '' }}
+      >
+        {({ handleSubmit, submitting }) => (
+          <form
+            onSubmit={handleSubmit}
+            className="mt-4 flex flex-col gap-4"
+            noValidate
+          >
+            <TextInputField
+              name="userName"
+              type={identifierInputType(methods)}
+              label={identifierLabel(methods)}
+              autoComplete="username"
+              validate={requiredValidator}
+            />
+            <TextInputField
+              name="password"
+              type="password"
+              label="Password"
+              autoComplete="current-password"
+              validate={composeValidators(
+                requiredValidator,
+                minLengthValidator(passwordPolicy.minLength),
+              )}
+            />
+            {passwordPolicy.minLength > 0 && (
+              <p className="-mt-2 text-xs text-fg-subtle">
+                Minimum {passwordPolicy.minLength} characters
+                {passwordPolicy.minNumbers
+                  ? `, ${passwordPolicy.minNumbers} number(s)`
+                  : ''}
+                {passwordPolicy.minUpper
+                  ? `, ${passwordPolicy.minUpper} uppercase`
+                  : ''}
+                {passwordPolicy.minSpecial
+                  ? `, ${passwordPolicy.minSpecial} special`
+                  : ''}
+                .
+              </p>
+            )}
+            <Button type="submit" block disabled={submitting || isLoading}>
+              {submitting || isLoading ? <Spinner /> : 'Sign in'}
+            </Button>
+          </form>
         )}
-        <Button type="submit" block disabled={isLoading}>
-          {isLoading ? <Spinner /> : 'Sign in'}
-        </Button>
-      </form>
+      </Form>
 
       {(socialProviders.length > 0 || passkey) && (
         <div className="mt-6">

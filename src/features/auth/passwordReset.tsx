@@ -1,7 +1,14 @@
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
+import { Form } from 'react-final-form';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AuthLayout } from '@/components/layouts';
-import { Button, TextField, Alert, Spinner } from '@/components/ui';
+import { Button, Alert, Spinner } from '@/components/ui';
+import { TextInputField } from '@/components/forms/fields';
+import {
+  composeValidators,
+  emailValidator,
+  requiredValidator,
+} from '@/components/forms/validators';
 import {
   useRequestPasswordResetMutation,
   useConfirmPasswordResetMutation,
@@ -10,13 +17,11 @@ import { ROUTES } from '@/routes';
 
 export function PasswordResetRequest() {
   const [request, { isLoading }] = useRequestPasswordResetMutation();
-  const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (values: { email: string }) => {
     try {
-      await request({ email }).unwrap();
+      await request({ email: values.email }).unwrap();
     } finally {
       setSent(true);
     }
@@ -30,18 +35,26 @@ export function PasswordResetRequest() {
           If an account exists for that email, a reset link is on its way.
         </Alert>
       ) : (
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <TextField
-            type="email"
-            label="Email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <Button type="submit" block disabled={isLoading}>
-            {isLoading ? <Spinner /> : 'Send reset link'}
-          </Button>
-        </form>
+        <Form onSubmit={onSubmit} initialValues={{ email: '' }}>
+          {({ handleSubmit, submitting }) => (
+            <form
+              onSubmit={handleSubmit}
+              className="flex flex-col gap-4"
+              noValidate
+            >
+              <TextInputField
+                name="email"
+                type="email"
+                label="Email"
+                autoComplete="email"
+                validate={composeValidators(requiredValidator, emailValidator)}
+              />
+              <Button type="submit" block disabled={submitting || isLoading}>
+                {submitting || isLoading ? <Spinner /> : 'Send reset link'}
+              </Button>
+            </form>
+          )}
+        </Form>
       )}
       <div className="mt-6 text-center text-sm">
         <Link to={ROUTES.SIGN_IN} className="text-brand hover:underline">
@@ -57,11 +70,13 @@ export function PasswordResetConfirm() {
   const token = params.get('token') ?? '';
   const [confirm, { isLoading, isSuccess, isError }] =
     useConfirmPasswordResetMutation();
-  const [newPassword, setNewPassword] = useState('');
 
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    confirm({ token, newPassword });
+  const onSubmit = async (values: { newPassword: string }) => {
+    try {
+      await confirm({ token, newPassword: values.newPassword }).unwrap();
+    } catch {
+      /* surfaced via isError */
+    }
   };
 
   return (
@@ -77,21 +92,29 @@ export function PasswordResetConfirm() {
           </Link>
         </Alert>
       ) : (
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          {isError && (
-            <Alert kind="error">Reset link invalid or expired.</Alert>
+        <Form onSubmit={onSubmit} initialValues={{ newPassword: '' }}>
+          {({ handleSubmit, submitting }) => (
+            <form
+              onSubmit={handleSubmit}
+              className="flex flex-col gap-4"
+              noValidate
+            >
+              {isError && (
+                <Alert kind="error">Reset link invalid or expired.</Alert>
+              )}
+              <TextInputField
+                name="newPassword"
+                type="password"
+                label="New password"
+                autoComplete="new-password"
+                validate={requiredValidator}
+              />
+              <Button type="submit" block disabled={submitting || isLoading}>
+                {submitting || isLoading ? <Spinner /> : 'Update password'}
+              </Button>
+            </form>
           )}
-          <TextField
-            type="password"
-            label="New password"
-            required
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
-          <Button type="submit" block disabled={isLoading}>
-            {isLoading ? <Spinner /> : 'Update password'}
-          </Button>
-        </form>
+        </Form>
       )}
     </AuthLayout>
   );

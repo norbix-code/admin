@@ -11,20 +11,19 @@
 
 import { Norbix } from '@norbix.ai/ts';
 import { createNorbixApi } from '@norbix/react-redux';
-import { API_VERSION } from '@/config/env';
+import { API_VERSION, API_PROXY_BASE, HUB_PROXY_BASE } from '@/config/env';
 
 interface ClientParams {
-  apiBaseUrl: string;
   apiVersion: string;
   projectId: string | undefined;
   bearerToken: string | undefined;
 }
 
-// The API base is empty until /echo resolves (setNorbixApiBase) and the project
-// id is set once resolved (setNorbixProjectId). The portal blocks the UI on echo
-// + project resolution, so no request is made before both are set.
+// The SDK talks to the SAME-ORIGIN BFF proxy, not the gateway directly. The
+// proxy re-targets to the real Hub/API on the server. So the base URLs are
+// fixed relative paths (/api/proxy/{api|hub}) and only the project id + bearer
+// token change at runtime.
 let params: ClientParams = {
-  apiBaseUrl: '',
   apiVersion: API_VERSION,
   projectId: undefined,
   bearerToken: undefined,
@@ -37,12 +36,26 @@ let params: ClientParams = {
 // first actual use, and rebuild when params change.
 let client: Norbix | undefined;
 
+function sameOriginProxyBase(path: string): string {
+  if (typeof window === 'undefined') {
+    throw new Error(
+      'Norbix proxy base URLs require a browser context (same-origin absolute URL).',
+    );
+  }
+  return new URL(path, window.location.origin).href.replace(/\/$/, '');
+}
+
 function build(p: ClientParams): Norbix {
   return new Norbix({
     projectId: p.projectId,
     bearerToken: p.bearerToken,
     apiVersion: p.apiVersion,
-    baseUrl: { api: p.apiBaseUrl },
+    // Both targets go through the same-origin BFF proxy. The SDK requires
+    // absolute http(s) base URLs, so resolve against window.location.origin.
+    baseUrl: {
+      api: sameOriginProxyBase(API_PROXY_BASE),
+      hub: sameOriginProxyBase(HUB_PROXY_BASE),
+    },
   });
 }
 
@@ -61,14 +74,15 @@ function invalidateClient(): void {
   client = undefined;
 }
 
-/** Point the client at the API URL discovered from /echo. */
+/**
+ * Update the API version from /echo. The base URL is the fixed BFF proxy and
+ * does NOT change — only the version segment the SDK appends.
+ */
 export function setNorbixApiBase(apiUrl: string, apiVersion?: string): void {
-  // echo's apiUrl is already versioned (e.g. http://host/v3); strip the
-  // version segment so the SDK composes routes with its apiVersion.
+  // echo's apiUrl is versioned (e.g. http://host/v3); take the version only.
   const m = /^(.*)\/(v\d+)\/?$/.exec(apiUrl);
-  const base = m ? m[1] : apiUrl.replace(/\/$/, '');
   const version = apiVersion ?? (m ? m[2] : params.apiVersion);
-  params = { ...params, apiBaseUrl: base, apiVersion: version };
+  params = { ...params, apiVersion: version };
   invalidateClient();
 }
 

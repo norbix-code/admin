@@ -66,6 +66,14 @@ export interface ProjectConfig {
   branding: ProjectBranding;
   auth: ProjectAuthOptions;
   links: ProjectLinks;
+  /**
+   * Coarse pre-login flag from the public config: is the Admin Portal enabled
+   * for this project's MANAGED portal? The managed portal shows a "portal
+   * unavailable" state when false; self-hosted ignores it (its key is the
+   * truth). Defaults to true when the field is absent (older gateways / unknown)
+   * so the portal does not lock itself out before the flag ships.
+   */
+  adminPortalEnabled?: boolean;
 }
 
 /** Static / bundled payload shape = ProjectConfig without projectId. */

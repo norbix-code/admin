@@ -1,12 +1,8 @@
-import { FormEvent, useMemo, useState } from 'react';
-import {
-  PageHeader,
-  Card,
-  Button,
-  TextField,
-  Alert,
-  Spinner,
-} from '@/components/ui';
+import { Form, FormSpy } from 'react-final-form';
+import type { FormApi } from 'final-form';
+import { PageHeader, Card, Button, Alert, Spinner } from '@/components/ui';
+import { TextInputField } from '@/components/forms/fields';
+import { emailValidator } from '@/components/forms/validators';
 import { useGetUserQuery, useUpdateUserMutation } from '@/services/norbix';
 import { useAppSelector } from '@/app/hooks';
 import { selectUserId } from '@/features/auth/slice';
@@ -57,12 +53,6 @@ type GeneralInfo = NonNullable<
   NonNullable<ReturnType<typeof useGetUserQuery>['data']>['user']
 >['generalInfo'];
 
-// Minimal, forgiving email check — the backend is the source of truth; this
-// just stops an obviously-bad value before the round-trip.
-function isValidEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-
 function ProfileForm({
   userId,
   base,
@@ -74,93 +64,84 @@ function ProfileForm({
 }) {
   const [update, { isLoading: saving, isSuccess, isError, reset }] =
     useUpdateUserMutation();
-  const [form, setForm] = useState<Editable>(initial);
 
-  // "Dirty" = the form differs from what we loaded. Save stays disabled until
-  // the user actually changes something, and after a successful save the form
-  // value becomes the new baseline so the button disables again.
-  const dirty = useMemo(
-    () => (Object.keys(form) as (keyof Editable)[]).some((k) => form[k] !== initial[k]),
-    [form, initial],
-  );
-
-  const emailValid = isValidEmail(form.primaryEmail);
-  const canSave = dirty && emailValid && !saving;
-
-  const set = (key: keyof Editable) => (e: { target: { value: string } }) => {
-    // Editing again clears any prior success/error banner.
-    if (isSuccess || isError) reset();
-    setForm((f) => ({ ...f, [key]: e.target.value }));
-  };
-
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!canSave) return;
-    update({
-      id: userId,
-      // Spread the loaded general-info so required fields (e.g.
-      // blockAllMarketingMessages) are preserved; override the edited fields.
-      userGeneralInfo: {
-        ...(base ?? { blockAllMarketingMessages: false }),
-        firstName: form.firstName,
-        lastName: form.lastName,
-        primaryEmail: form.primaryEmail,
-        phone: form.phone,
-      },
-    });
+  const onSubmit = async (values: Editable, form: FormApi<Editable>) => {
+    try {
+      await update({
+        id: userId,
+        // Spread the loaded general-info so required fields (e.g.
+        // blockAllMarketingMessages) are preserved; override the edited fields.
+        userGeneralInfo: {
+          ...(base ?? { blockAllMarketingMessages: false }),
+          firstName: values.firstName,
+          lastName: values.lastName,
+          primaryEmail: values.primaryEmail,
+          phone: values.phone,
+        },
+      }).unwrap();
+      // Saved values become the new baseline: the form turns pristine again
+      // and the Save button disables until the user edits something.
+      form.initialize(values);
+    } catch {
+      /* surfaced via isError */
+    }
   };
 
   return (
-    <>
-      {isSuccess && <Alert kind="success">Profile saved.</Alert>}
-      {isError && <Alert kind="error">Could not save profile. Please retry.</Alert>}
-      <form onSubmit={onSubmit} className="mt-4 flex flex-col gap-4">
-        <TextField
-          label="First name"
-          value={form.firstName}
-          onChange={set('firstName')}
-        />
-        <TextField
-          label="Last name"
-          value={form.lastName}
-          onChange={set('lastName')}
-        />
-        <TextField
-          type="email"
-          label="Email"
-          value={form.primaryEmail}
-          onChange={set('primaryEmail')}
-          autoComplete="email"
-        />
-        {form.primaryEmail !== '' && !emailValid && (
-          <p className="-mt-2 text-xs text-danger">
-            Enter a valid email address.
-          </p>
-        )}
-        <TextField
-          label="Phone"
-          value={form.phone}
-          onChange={set('phone')}
-          autoComplete="tel"
-        />
-        <div className="flex items-center gap-3">
-          <Button type="submit" disabled={!canSave}>
-            {saving ? <Spinner /> : 'Save changes'}
-          </Button>
-          {dirty && !saving && (
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                if (isSuccess || isError) reset();
-                setForm(initial);
-              }}
-            >
-              Discard
-            </Button>
+    <Form<Editable> onSubmit={onSubmit} initialValues={initial}>
+      {({ handleSubmit, form, pristine, submitting, hasValidationErrors }) => (
+        <>
+          {isSuccess && <Alert kind="success">Profile saved.</Alert>}
+          {isError && (
+            <Alert kind="error">Could not save profile. Please retry.</Alert>
           )}
-        </div>
-      </form>
-    </>
+          {/* Editing again clears any prior success/error banner. */}
+          <FormSpy<Editable>
+            subscription={{ values: true }}
+            onChange={() => {
+              if (isSuccess || isError) reset();
+            }}
+          />
+          <form
+            onSubmit={handleSubmit}
+            className="mt-4 flex flex-col gap-4"
+            noValidate
+          >
+            <TextInputField name="firstName" label="First name" />
+            <TextInputField name="lastName" label="Last name" />
+            <TextInputField
+              name="primaryEmail"
+              type="email"
+              label="Email"
+              autoComplete="email"
+              validate={emailValidator}
+            />
+            <TextInputField name="phone" label="Phone" autoComplete="tel" />
+            <div className="flex items-center gap-3">
+              <Button
+                type="submit"
+                disabled={
+                  pristine || hasValidationErrors || submitting || saving
+                }
+              >
+                {submitting || saving ? <Spinner /> : 'Save changes'}
+              </Button>
+              {!pristine && !saving && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    if (isSuccess || isError) reset();
+                    form.reset();
+                  }}
+                >
+                  Discard
+                </Button>
+              )}
+            </div>
+          </form>
+        </>
+      )}
+    </Form>
   );
 }

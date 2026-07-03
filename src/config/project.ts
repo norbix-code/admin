@@ -13,15 +13,16 @@
 //      so it lives in resolveProjectIdAsync.
 //   5. null → render the blank "no project" placeholder.
 
+import { NORBIX_HUB_URL } from '@norbix.ai/ts';
 import { PINNED_PROJECT_ID } from './env';
 
 const PR_PREFIX = /^pr_([0-9A-Za-z]+)$/;
 
-// The managed-service Hub that owns the custom-domain → projectId mapping. This
-// is intentionally hardcoded (NOT VITE_ADMIN_HUB_BASE_URL): a self-hosted hub is
-// not the managed service and would not answer /admin-portal-id. Resolution by
-// custom domain is a managed-service feature.
-const MANAGED_SERVICE_HUB_ROOT = 'https://hub.norbix.ai/v3';
+// The managed-service Hub that owns the custom-domain → projectId mapping. The
+// host is the SDK's canonical public Hub URL (NOT a configurable env): a
+// self-hosted hub is not the managed service and would not answer
+// /admin-portal-id. Resolution by custom domain is a managed-service feature.
+const MANAGED_SERVICE_HUB_ROOT = `${NORBIX_HUB_URL}/v3`;
 
 export function parseProjectIdFromHost(host: string): string | null {
   const firstLabel = host.split('.')[0] ?? '';

@@ -1,4 +1,4 @@
-// BFF bootstrap endpoint — the ONE trusted server-side call the portal makes
+// Bootstrap endpoint — the ONE trusted server-side call the portal makes
 // before sign-in.
 //
 // It returns, in a single response:
@@ -49,15 +49,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   };
 
   if (!hasServiceKey()) {
-    // Without the key the BFF can still serve the public brand/auth (below),
-    // but not the privileged catalogs — flag it rather than 500.
+    // Without the key the backend can still serve the public brand/auth
+    // (below), but not the privileged catalogs — flag it rather than 500.
     warnings.push('service-key-missing');
   }
 
   // 1) Brand + auth — public, no key needed. Failure is non-fatal.
   try {
     const client = serviceClientForProject(projectId);
-    const config = await client.api.public.config({ projectId });
+    const config = await client.api.public.getPublicProjectConfig({ projectId });
     out.branding = config.branding ?? null;
     out.auth = config.auth ?? null;
   } catch {

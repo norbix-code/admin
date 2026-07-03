@@ -21,7 +21,9 @@
       "@/*": ["./src/*"],
       "@norbix/react-redux": ["../sdks/norbix-react-redux/src/index.ts"],
       "norbix": ["../sdks/norbix-js/src/index.ts"],
-      "@norbix.ai/ts": ["../sdks/norbix-js/src/index.ts"]
+      "@norbix.ai/ts": ["../sdks/norbix-js/src/index.ts"],
+      "@norbix.ai/ts/types/hub": ["../sdks/norbix-js/src/types/hub2.dtos.ts"],
+      "@norbix.ai/ts/types/api": ["../sdks/norbix-js/src/types/api2.dtos.ts"]
     }
   },
   "include": [

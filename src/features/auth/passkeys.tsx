@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { Card, Button, TextField, Alert, Spinner, ConfirmDialog } from '@/components/ui';
+import { Form } from 'react-final-form';
+import { Card, Button, Alert, Spinner, ConfirmDialog } from '@/components/ui';
+import { TextInputField } from '@/components/forms/fields';
+import { requiredTrimmedValidator } from '@/components/forms/validators';
 import { useAppSelector } from '@/app/hooks';
 import { selectUserId } from './slice';
 import {
@@ -89,36 +92,49 @@ function PasskeyRow({
   const [rename, { isLoading: renaming }] = useRenamePasskeyMutation();
   const [revoke, { isLoading: revoking }] = useRevokePasskeyMutation();
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(friendlyName);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
 
   const registered = registeredOnUtc
     ? new Date(registeredOnUtc).toLocaleDateString()
     : '';
 
+  const onRename = async (values: { name: string }) => {
+    await rename({ credentialId, friendlyName: values.name.trim() });
+    setEditing(false);
+  };
+
   return (
     <li className="flex items-center justify-between gap-3 py-3">
       <div className="min-w-0">
         {editing ? (
-          <div className="flex items-center gap-2">
-            <TextField
-              label=""
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <Button
-              disabled={renaming || name.trim() === ''}
-              onClick={async () => {
-                await rename({ credentialId, friendlyName: name.trim() });
-                setEditing(false);
-              }}
-            >
-              {renaming ? <Spinner /> : 'Save'}
-            </Button>
-            <Button variant="ghost" onClick={() => setEditing(false)}>
-              Cancel
-            </Button>
-          </div>
+          <Form onSubmit={onRename} initialValues={{ name: friendlyName }}>
+            {({ handleSubmit, submitting, hasValidationErrors }) => (
+              <form
+                onSubmit={handleSubmit}
+                className="flex items-center gap-2"
+                noValidate
+              >
+                <TextInputField
+                  name="name"
+                  label=""
+                  validate={requiredTrimmedValidator}
+                />
+                <Button
+                  type="submit"
+                  disabled={submitting || renaming || hasValidationErrors}
+                >
+                  {submitting || renaming ? <Spinner /> : 'Save'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setEditing(false)}
+                >
+                  Cancel
+                </Button>
+              </form>
+            )}
+          </Form>
         ) : (
           <>
             <div className="truncate text-sm font-medium text-fg">
@@ -167,6 +183,11 @@ function PasskeyRow({
 
 type Step = 'idle' | 'sendingCode' | 'awaitingCode' | 'registering';
 
+interface RegisterPasskeyValues {
+  code: string;
+  friendlyName: string;
+}
+
 function RegisterPasskey({ email }: { email: string }) {
   const [startVerification] = useStartEmailVerificationMutation();
   const [confirmVerification] = useConfirmEmailVerificationMutation();
@@ -174,8 +195,6 @@ function RegisterPasskey({ email }: { email: string }) {
   const [verifyRegistration] = useVerifyPasskeyRegistrationMutation();
 
   const [step, setStep] = useState<Step>('idle');
-  const [code, setCode] = useState('');
-  const [friendlyName, setFriendlyName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
@@ -191,14 +210,14 @@ function RegisterPasskey({ email }: { email: string }) {
     }
   };
 
-  const finish = async () => {
+  const finish = async (values: RegisterPasskeyValues) => {
     setError(null);
     setStep('registering');
     try {
       // 1) Confirm the emailed code → one-time verification token.
       const { verificationToken } = await confirmVerification({
         email,
-        code,
+        code: values.code,
       }).unwrap();
 
       // 2) Ask the server for WebAuthn creation options.
@@ -212,13 +231,11 @@ function RegisterPasskey({ email }: { email: string }) {
         verificationToken,
         ceremonyId: opts.ceremonyId,
         attestationResponse,
-        friendlyName: friendlyName.trim() || undefined,
+        friendlyName: values.friendlyName.trim() || undefined,
       }).unwrap();
 
       setDone(true);
       setStep('idle');
-      setCode('');
-      setFriendlyName('');
     } catch (e) {
       // WebAuthn throws DOMException on cancel/timeout; the API throws on a
       // bad code. Either way, let the user try again.
@@ -263,42 +280,54 @@ function RegisterPasskey({ email }: { email: string }) {
       {step === 'sendingCode' && <Spinner label="Sending a code to your email…" />}
 
       {(step === 'awaitingCode' || step === 'registering') && (
-        <div className="mt-2 flex flex-col gap-3">
-          <p className="text-sm text-fg-muted">
-            We emailed a verification code to <strong>{email}</strong>. Enter it
-            to confirm it’s you, then approve the passkey on your device.
-          </p>
-          <TextField
-            label="Verification code"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            inputMode="numeric"
-            autoComplete="one-time-code"
-          />
-          <TextField
-            label="Passkey name (optional)"
-            value={friendlyName}
-            onChange={(e) => setFriendlyName(e.target.value)}
-            placeholder="e.g. My laptop"
-          />
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={finish}
-              disabled={step === 'registering' || code.trim() === ''}
+        <Form<RegisterPasskeyValues>
+          onSubmit={finish}
+          initialValues={{ code: '', friendlyName: '' }}
+        >
+          {({ handleSubmit, hasValidationErrors }) => (
+            <form
+              onSubmit={handleSubmit}
+              className="mt-2 flex flex-col gap-3"
+              noValidate
             >
-              {step === 'registering' ? <Spinner /> : 'Add passkey'}
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setStep('idle');
-                setError(null);
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
+              <p className="text-sm text-fg-muted">
+                We emailed a verification code to <strong>{email}</strong>.
+                Enter it to confirm it’s you, then approve the passkey on your
+                device.
+              </p>
+              <TextInputField
+                name="code"
+                label="Verification code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                validate={requiredTrimmedValidator}
+              />
+              <TextInputField
+                name="friendlyName"
+                label="Passkey name (optional)"
+                placeholder="e.g. My laptop"
+              />
+              <div className="flex items-center gap-2">
+                <Button
+                  type="submit"
+                  disabled={step === 'registering' || hasValidationErrors}
+                >
+                  {step === 'registering' ? <Spinner /> : 'Add passkey'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => {
+                    setStep('idle');
+                    setError(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          )}
+        </Form>
       )}
     </div>
   );
