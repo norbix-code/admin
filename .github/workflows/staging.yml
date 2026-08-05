@@ -1,0 +1,158 @@
+name: Staging · Build & Deploy
+
+# Continuous deployment of the ADMIN portal to the staging box (Hostinger, k3s).
+#
+# Admin ships only for managed + enterprise (there is no community-admin
+# image), so the triggers are:
+#
+#   push a tag  staging-ms-v2.1.0   → build `admin` (ManagedService) → deploy to norbix-ms
+#   push a tag  staging-ent-v2.1.0  → build `enterprise-admin` (Enterprise) → deploy to norbix-enterprise
+#   Actions → Run workflow          → pick the release
+#
+# Same tag convention as gateway/cloud (staging- + the release.yml prefixes).
+# Image tag becomes staging-<version>.<short-sha> — readable + unique for
+# ECR's immutable tags.
+#
+# Unlike gateway/cloud this repo has no _reusable-build-push.yml, so the
+# build steps are inline (same buildx + OIDC ECR login pattern).
+#
+# Secrets: AWS_ROLE_ARN            — arn:aws:iam::539262298114:role/github-actions-norbix
+#                                    NOTE: that role's trust policy must include
+#                                    "repo:norbix-code/admin:*" (this repo is in a
+#                                    different org than gateway/cloud!)
+#          DEVOPS_DISPATCH_TOKEN   — fine-grained PAT for codemash-io/devops,
+#                                    Contents: Read and write
+# Variable: ECR_REGISTRY (optional — falls back to the norbix account registry)
+
+on:
+  push:
+    tags: ['staging-*']
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Release to build & deploy (admin has no self-hosted image)'
+        required: true
+        default: 'managed'
+        type: choice
+        options: [managed, enterprise]
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: staging-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-22.04
+    outputs:
+      release: ${{ steps.p.outputs.release }}
+      version: ${{ steps.p.outputs.version }}
+      flavor: ${{ steps.p.outputs.flavor }}
+      image: ${{ steps.p.outputs.image }}
+    steps:
+      - id: p
+        run: |
+          SHORT=$(echo "${{ github.sha }}" | cut -c1-7)
+          TAG="${{ github.ref_name }}"
+          VERSION=""
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            case "$TAG" in
+              staging-enterprise-*)  RELEASE=enterprise ; VERSION="${TAG#staging-enterprise-}" ;;
+              staging-ent-*)         RELEASE=enterprise ; VERSION="${TAG#staging-ent-}" ;;
+              staging-managed-*)     RELEASE=managed    ; VERSION="${TAG#staging-managed-}" ;;
+              staging-ms-*)          RELEASE=managed    ; VERSION="${TAG#staging-ms-}" ;;
+              staging-self-hosted-*|staging-sh-*)
+                echo "::notice::Admin has no self-hosted image — nothing to build for '$TAG'."
+                echo "release=skip" >> "$GITHUB_OUTPUT"; exit 0 ;;
+              *) echo "::error::Tag '$TAG' must look like staging-<ms|ent>-v<X.Y.Z>"; exit 1 ;;
+            esac
+          else
+            RELEASE="${{ inputs.release }}"
+          fi
+          case "$RELEASE" in
+            managed)    FLAVOR=ManagedService ; IMAGE=admin ;;
+            enterprise) FLAVOR=Enterprise     ; IMAGE=enterprise-admin ;;
+          esac
+          if [ -n "$VERSION" ]; then
+            IMGTAG="staging-${VERSION#v}.$SHORT"
+          else
+            IMGTAG="staging-$SHORT"
+          fi
+          echo "release=$RELEASE"  >> "$GITHUB_OUTPUT"
+          echo "version=$IMGTAG"   >> "$GITHUB_OUTPUT"
+          echo "flavor=$FLAVOR"    >> "$GITHUB_OUTPUT"
+          echo "image=$IMAGE"      >> "$GITHUB_OUTPUT"
+          echo "Building $RELEASE ($FLAVOR) → $IMAGE:$IMGTAG"
+
+  build-push:
+    needs: plan
+    if: needs.plan.outputs.release != 'skip'
+    runs-on: ubuntu-22.04
+    outputs:
+      image_ref: ${{ steps.ref.outputs.image_ref }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-west-2
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Compute image reference
+        id: ref
+        run: |
+          REGISTRY="${{ vars.ECR_REGISTRY }}"
+          [ -z "$REGISTRY" ] && REGISTRY="${{ steps.ecr.outputs.registry }}"
+          echo "image_ref=$REGISTRY/norbix/${{ needs.plan.outputs.image }}:${{ needs.plan.outputs.version }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push (amd64 — staging box arch)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deployments/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.ref.outputs.image_ref }}
+          build-args: |
+            VITE_ADMIN_RELEASE=${{ needs.plan.outputs.flavor }}
+          cache-from: type=gha,scope=staging-${{ needs.plan.outputs.flavor }}
+          cache-to: type=gha,mode=max,scope=staging-${{ needs.plan.outputs.flavor }}
+
+  notify-devops:
+    name: Trigger staging deploy
+    needs: [plan, build-push]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Send repository_dispatch to devops
+        env:
+          TOKEN: ${{ secrets.DEVOPS_DISPATCH_TOKEN }}
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg r "${{ needs.plan.outputs.release }}" \
+            --arg i "${{ needs.build-push.outputs.image_ref }}" \
+            --arg sha "${{ github.sha }}" --arg branch "${{ github.ref_name }}" \
+            '{ event_type: "staging-deploy",
+               client_payload: { release: $r, source: "admin", sha: $sha, branch: $branch,
+                                 services: [ { name: "admin", image: $i } ] } }')
+          echo "$PAYLOAD" | jq .
+
+          # --http1.1 + retries: api.github.com occasionally resets HTTP/2
+          # streams (curl exit 92); a plain retry over HTTP/1.1 fixes it.
+          curl -sf --http1.1 --retry 5 --retry-all-errors --retry-delay 5 -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/codemash-io/devops/dispatches \
+            -d "$PAYLOAD"
+          echo "devops notified — watch codemash-io/devops → Actions → 'Staging · Deploy'"
