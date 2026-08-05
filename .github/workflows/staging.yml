@@ -148,11 +148,17 @@ jobs:
                                  services: [ { name: "admin", image: $i } ] } }')
           echo "$PAYLOAD" | jq .
 
-          # --http1.1 + retries: api.github.com occasionally resets HTTP/2
-          # streams (curl exit 92); a plain retry over HTTP/1.1 fixes it.
-          curl -sf --http1.1 --retry 5 --retry-all-errors --retry-delay 5 -X POST \
+          # --http1.1 + retries handle transient network resets (curl 92).
+          # We capture the HTTP status ourselves: 204 = accepted. Anything else
+          # is printed with GitHub's answer, so token problems are visible.
+          STATUS=$(curl -s --http1.1 --retry 5 --retry-delay 5 -o /tmp/dispatch-resp.txt -w "%{http_code}" -X POST \
             -H "Authorization: Bearer $TOKEN" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/codemash-io/devops/dispatches \
-            -d "$PAYLOAD"
+            -d "$PAYLOAD")
+          if [ "$STATUS" != "204" ]; then
+            echo "GitHub answered HTTP $STATUS:"; cat /tmp/dispatch-resp.txt
+            echo "::error::Dispatch rejected (HTTP $STATUS). Check the DEVOPS_DISPATCH_TOKEN secret: not expired? access to the devops repo? permission Contents: Read and write?"
+            exit 1
+          fi
           echo "devops notified — watch codemash-io/devops → Actions → 'Staging · Deploy'"
