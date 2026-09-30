@@ -4,7 +4,7 @@ updates:
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 10
     groups:
       react:
@@ -29,10 +29,10 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
 
   # Base image in the Dockerfile.
   - package-ecosystem: docker
     directory: /deployments
     schedule:
-      interval: weekly
+      interval: monthly
