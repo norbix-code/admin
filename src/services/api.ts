@@ -11,7 +11,7 @@ import {
   FetchArgs,
   FetchBaseQueryError,
 } from '@reduxjs/toolkit/query/react';
-import { resolveProjectId } from '@/config/project';
+import { resolveProjectId, setProjectHeaders } from '@/config/project';
 import { selectApiRoot } from '@/config/slice';
 import type { RootState } from '@/app/store';
 
@@ -28,7 +28,7 @@ const dynamicBaseQuery: BaseQueryFn<
   const rawBaseQuery = fetchBaseQuery({
     baseUrl,
     prepareHeaders: (headers) => {
-      if (projectId) headers.set('X-Norbix-Project', projectId);
+      setProjectHeaders(headers, projectId);
       if (token) headers.set('Authorization', `Bearer ${token}`);
       return headers;
     },

@@ -4,7 +4,7 @@
 
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { HUB_ROOT } from '@/config/env';
-import { resolveProjectId } from '@/config/project';
+import { resolveProjectId, setProjectHeaders } from '@/config/project';
 import type { EchoResponse } from '@/types/echo';
 
 export const hub = createApi({
@@ -13,7 +13,7 @@ export const hub = createApi({
     baseUrl: HUB_ROOT,
     prepareHeaders: (headers) => {
       const projectId = resolveProjectId();
-      if (projectId) headers.set('X-Norbix-Project', projectId);
+      setProjectHeaders(headers, projectId);
       return headers;
     },
   }),
