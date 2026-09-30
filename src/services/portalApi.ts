@@ -28,7 +28,7 @@ export const portalApi = createApi({
         url: `/structure?projectId=${encodeURIComponent(projectId)}`,
         method: 'GET',
       }),
-      providesTags: (result, error, arg) => [
+      providesTags: (_result, _error, arg) => [
         { type: 'Structure', id: arg.projectId },
       ],
     }),

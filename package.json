@@ -12,6 +12,7 @@
     "build": "next build",
     "start": "next start -p 3100",
     "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit",
     "format": "prettier --write \"{src,app}/**/*.{ts,tsx,css}\"",
     "format:check": "prettier --check \"{src,app}/**/*.{ts,tsx,css}\"",
     "test": "vitest run",
