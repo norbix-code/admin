@@ -31,6 +31,20 @@ describe('parseServiceStackData', () => {
     });
   });
 
+  it('drops the channel prefix the gateway puts before the selector', () => {
+    expect(
+      parseServiceStackData(
+        'ai-chat:pr_x:usr_y@cmd.ai.chat.turn.token {"eventName":"ai.chat.turn.token","payload":{"text":"hi"}}',
+      ),
+    ).toEqual({
+      selector: 'ai.chat.turn.token',
+      body: { eventName: 'ai.chat.turn.token', payload: { text: 'hi' } },
+    });
+    expect(
+      parseServiceStackData('ai-chat:pr_x:usr_y@cmd.onJoin {"DisplayName":"Ada"}'),
+    ).toEqual({ selector: 'onJoin', body: { DisplayName: 'Ada' } });
+  });
+
   it('accepts a bare JSON envelope and ignores anything else', () => {
     expect(parseServiceStackData('{"eventName":"x","payload":1}')).toEqual({
       selector: 'x',

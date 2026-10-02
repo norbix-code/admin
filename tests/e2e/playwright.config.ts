@@ -24,6 +24,8 @@ const FAKE_API = `http://127.0.0.1:${FAKE_API_PORT}`;
 export default defineConfig({
   testDir: '.',
   testMatch: /\.spec\.ts$/,
+  // chat-stack.spec.ts needs a running Docker stack (playwright.stack.config.ts).
+  testIgnore: /chat-stack\.spec\.ts$/,
   outputDir: '../../test-results/e2e',
   fullyParallel: false,
   workers: 1,

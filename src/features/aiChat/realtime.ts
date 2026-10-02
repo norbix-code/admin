@@ -82,9 +82,15 @@ export class SseParser {
   }
 }
 
-/** A ServiceStack message: `cmd.{selector} {json}` in the data field. */
+/**
+ * A ServiceStack message: `cmd.{selector} {json}` in the data field. On a
+ * subscribed channel the gateway prefixes the selector with the channel —
+ * `ai-chat:pr_x:usr_y@cmd.ai.chat.turn.token {json}` — exactly as the real
+ * Hub and Api do (seen on a stack, item stack-admin-portal); only
+ * `cmd.onConnect` comes bare. The prefix is dropped here.
+ */
 export interface ServiceStackMessage {
-  /** Without the `cmd.` prefix, e.g. `ai.chat.turn.token`, `onConnect`. */
+  /** Without the channel and the `cmd.` prefix, e.g. `ai.chat.turn.token`, `onConnect`. */
   selector: string;
   body: unknown;
 }
@@ -93,8 +99,11 @@ export const parseServiceStackData = (
   data: string,
 ): ServiceStackMessage | undefined => {
   const space = data.indexOf(' ');
-  const head = space < 0 ? data : data.slice(0, space);
+  const rawHead = space < 0 ? data : data.slice(0, space);
   const json = space < 0 ? '' : data.slice(space + 1);
+  // `<channel>@cmd.x` → `cmd.x` (a channel name never holds a space)
+  const at = rawHead.indexOf('@cmd.');
+  const head = at >= 0 ? rawHead.slice(at + 1) : rawHead;
   if (!head.startsWith('cmd.')) {
     // Plain JSON envelope (no selector) — accept it too.
     try {

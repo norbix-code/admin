@@ -70,8 +70,10 @@ const readBody = (req) =>
     });
   });
 
+// The real gateway prefixes the selector with the channel the message was
+// published on (`<channel>@cmd.<event>`); only cmd.onConnect comes bare.
 const envelope = (eventName, payload) =>
-  `data: cmd.${eventName} ${JSON.stringify({
+  `data: ${CHANNEL}@cmd.${eventName} ${JSON.stringify({
     channel: 'ai-chat',
     eventName,
     projectId: PROJECT,
