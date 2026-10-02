@@ -1,12 +1,13 @@
 name: CodeQL
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  # Monthly deep scan (1st of month, 06:00 UTC) + on-demand runs.
+  # Was: every PR/push — the ~20-min autobuild on each push cost far
+  # more than it caught. Dependabot still opens security PRs the moment
+  # a CVE lands, independent of this schedule.
   schedule:
-    - cron: '0 6 * * 1' # weekly, Monday 06:00 UTC
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
 
 permissions:
   contents: read

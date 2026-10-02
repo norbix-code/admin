@@ -1,11 +1,10 @@
 name: Docker image
 
 on:
-  push:
-    branches: [main]
-    tags: ['v*']
-  pull_request:
-    branches: [main]
+  # Manual only — ordinary pushes/PRs no longer docker-build. The staging
+  # tag flow (staging.yml) and release tags build the real images and
+  # catch Dockerfile breakage where it matters.
+  workflow_dispatch:
 
 permissions:
   contents: read
