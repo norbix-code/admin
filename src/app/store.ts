@@ -42,7 +42,7 @@ import { listenerMiddleware } from '@/app/middlewares/listener';
 import { rtkQueryErrorLogger } from '@/app/middlewares/errorCatching';
 
 // ── combine all reducers ────────────────────────────────────────────
-// Data-plane endpoints come from the Norbix SDK slice (@norbix/react-redux):
+// Data-plane endpoints come from the Norbix SDK slice (@norbix.ai/react-redux):
 // login, logout, profile, preferences. The app-owned `api` slice still backs
 // the endpoints the SDK does NOT yet expose (password change/reset, 2FA,
 // compliance) — these move to the SDK once @norbix.ai/ts adds them, with no
