@@ -66,12 +66,8 @@ describe('passwordPolicyValidator', () => {
   it('reports the first unmet rule with its exact message', () => {
     expect(validate('short')).to.equal('Minimum 8 characters');
     expect(validate('longenough')).to.equal('At least 1 number(s)');
-    expect(validate('longenough1')).to.equal(
-      'At least 1 uppercase letter(s)',
-    );
-    expect(validate('Longenough1')).to.equal(
-      'At least 1 special character(s)',
-    );
+    expect(validate('longenough1')).to.equal('At least 1 uppercase letter(s)');
+    expect(validate('Longenough1')).to.equal('At least 1 special character(s)');
   });
   it('passes a compliant password and empty values', () => {
     expect(validate('Longenough1!')).to.equal(undefined);

@@ -29,9 +29,14 @@ const viteEnv: ImportMetaEnv =
  * `undefined` in the browser bundle. So the literal `process.env.NEXT_PUBLIC_*`
  * reads must live at the call sites below — not behind a dynamic key.
  */
-function pick(nextValue: string | undefined, viteSuffix: string): string | undefined {
+function pick(
+  nextValue: string | undefined,
+  viteSuffix: string,
+): string | undefined {
   if (nextValue) return nextValue;
-  return (viteEnv as Record<string, string | undefined>)[`VITE_ADMIN_${viteSuffix}`];
+  return (viteEnv as Record<string, string | undefined>)[
+    `VITE_ADMIN_${viteSuffix}`
+  ];
 }
 
 // Literal reads so Next can statically inline them. Guard `process` for the
@@ -108,5 +113,4 @@ export const PINNED_PROJECT_ID: string | undefined =
 // (self-hosted) or derived from the host (managed). The two are unrelated.
 export const IS_DEV: boolean =
   Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV) ||
-  (typeof process !== 'undefined' &&
-    process.env?.NODE_ENV !== 'production');
+  (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production');

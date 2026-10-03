@@ -41,7 +41,9 @@ describe('parseServiceStackData', () => {
       body: { eventName: 'ai.chat.turn.token', payload: { text: 'hi' } },
     });
     expect(
-      parseServiceStackData('ai-chat:pr_x:usr_y@cmd.onJoin {"DisplayName":"Ada"}'),
+      parseServiceStackData(
+        'ai-chat:pr_x:usr_y@cmd.onJoin {"DisplayName":"Ada"}',
+      ),
     ).toEqual({ selector: 'onJoin', body: { DisplayName: 'Ada' } });
   });
 

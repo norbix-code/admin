@@ -85,7 +85,10 @@ export function PasskeySignInButton() {
               )}
             />
             <div className="flex items-center gap-2">
-              <Button type="submit" disabled={submitting || hasValidationErrors}>
+              <Button
+                type="submit"
+                disabled={submitting || hasValidationErrors}
+              >
                 {submitting ? <Spinner /> : 'Use passkey'}
               </Button>
               <Button

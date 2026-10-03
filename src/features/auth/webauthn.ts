@@ -24,7 +24,10 @@ export function isWebAuthnAvailable(): boolean {
 // surface — UI code uses createPasskey / getPasskeyAssertion.
 export function base64UrlToBytes(value: string): Uint8Array {
   const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
-  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+  const padded = base64.padEnd(
+    base64.length + ((4 - (base64.length % 4)) % 4),
+    '=',
+  );
   const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
@@ -34,8 +37,12 @@ export function base64UrlToBytes(value: string): Uint8Array {
 export function bytesToBase64Url(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
-  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  for (let i = 0; i < bytes.length; i += 1)
+    binary += String.fromCharCode(bytes[i]);
+  return btoa(binary)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
 }
 
 // The base64url fields the server sends in the options JSON. We decode them
@@ -55,9 +62,9 @@ function decodeCreationOptions(
     ...(pk as object),
     challenge: base64UrlToBytes(pk.challenge as string),
     user: { ...user, id: base64UrlToBytes(user.id as string) },
-    excludeCredentials: ((pk.excludeCredentials as CredentialDescriptor[]) ?? []).map(
-      (c) => ({ ...c, id: base64UrlToBytes(c.id), type: 'public-key' }),
-    ),
+    excludeCredentials: (
+      (pk.excludeCredentials as CredentialDescriptor[]) ?? []
+    ).map((c) => ({ ...c, id: base64UrlToBytes(c.id), type: 'public-key' })),
   } as unknown as PublicKeyCredentialCreationOptions;
 }
 
@@ -68,9 +75,9 @@ function decodeRequestOptions(
   return {
     ...(pk as object),
     challenge: base64UrlToBytes(pk.challenge as string),
-    allowCredentials: ((pk.allowCredentials as CredentialDescriptor[]) ?? []).map(
-      (c) => ({ ...c, id: base64UrlToBytes(c.id), type: 'public-key' }),
-    ),
+    allowCredentials: (
+      (pk.allowCredentials as CredentialDescriptor[]) ?? []
+    ).map((c) => ({ ...c, id: base64UrlToBytes(c.id), type: 'public-key' })),
   } as unknown as PublicKeyCredentialRequestOptions;
 }
 
@@ -95,7 +102,8 @@ function credentialToJson(cred: PublicKeyCredential): string {
   if ('authenticatorData' in response && response.authenticatorData) {
     r.authenticatorData = bytesToBase64Url(response.authenticatorData);
     r.signature = bytesToBase64Url(response.signature);
-    if (response.userHandle) r.userHandle = bytesToBase64Url(response.userHandle);
+    if (response.userHandle)
+      r.userHandle = bytesToBase64Url(response.userHandle);
   }
   return JSON.stringify(out);
 }
@@ -117,7 +125,9 @@ export async function createPasskey(optionsJson: string): Promise<string> {
  * Run an authentication ceremony: parse the server's options JSON, prompt the
  * authenticator, and return the assertion as a JSON string.
  */
-export async function getPasskeyAssertion(optionsJson: string): Promise<string> {
+export async function getPasskeyAssertion(
+  optionsJson: string,
+): Promise<string> {
   const options = decodeRequestOptions(JSON.parse(optionsJson));
   const cred = (await navigator.credentials.get({
     publicKey: options,

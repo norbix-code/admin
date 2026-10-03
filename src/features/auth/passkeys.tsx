@@ -28,7 +28,8 @@ import { createPasskey, isWebAuthnAvailable } from './webauthn';
 export function PasskeysCard() {
   const userId = useAppSelector(selectUserId) ?? '';
   const { data: userData } = useGetUserQuery({ id: userId });
-  const email = userData?.user?.email ?? userData?.user?.generalInfo?.primaryEmail ?? '';
+  const email =
+    userData?.user?.email ?? userData?.user?.generalInfo?.primaryEmail ?? '';
 
   const { data: list, isLoading: listing } = useListPasskeysQuery({});
   const passkeys = list?.passkeys ?? [];
@@ -265,11 +266,7 @@ function RegisterPasskey({ email }: { email: string }) {
 
   return (
     <div className="border-t border-border-token pt-4">
-      {error && (
-        <Alert kind="error">
-          {error}
-        </Alert>
-      )}
+      {error && <Alert kind="error">{error}</Alert>}
 
       {step === 'idle' && (
         <Button onClick={begin} disabled={!email}>
@@ -277,7 +274,9 @@ function RegisterPasskey({ email }: { email: string }) {
         </Button>
       )}
 
-      {step === 'sendingCode' && <Spinner label="Sending a code to your email…" />}
+      {step === 'sendingCode' && (
+        <Spinner label="Sending a code to your email…" />
+      )}
 
       {(step === 'awaitingCode' || step === 'registering') && (
         <Form<RegisterPasskeyValues>
