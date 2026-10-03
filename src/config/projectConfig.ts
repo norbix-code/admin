@@ -19,6 +19,7 @@
 // AccentColor a secondary; everything else stays neutral grey/white.
 
 import type {
+  ProjectBranding,
   ProjectConfig,
   PublicAiChat,
   StaticProjectConfig,
@@ -39,12 +40,26 @@ import { setProjectHeaders } from './project';
 // (matching the Hub PasswordComplexity default), no socials, no passkey.
 const DEFAULT_PASSWORD_POLICY = { minLength: 3 };
 
+/** Placeholder `displayName` used until (or unless) a project name resolves. */
+export const PLACEHOLDER_DISPLAY_NAME = 'Sign in';
+
+/**
+ * The project's readable name, or undefined while only the placeholder is
+ * known. The sidebar and the browser tab use it; they must not say "Sign in".
+ */
+export function projectNameOf(
+  branding?: ProjectBranding | null,
+): string | undefined {
+  const name = branding?.displayName?.trim();
+  return name && name !== PLACEHOLDER_DISPLAY_NAME ? name : undefined;
+}
+
 const NEUTRAL_DEFAULTS: StaticProjectConfig = {
   branding: {
     // Neutral placeholder used only before the project config resolves (or when
     // the project is unknown). Once the public config loads, the readable
     // project name replaces this — see loadDynamicConfig.
-    displayName: 'Sign in',
+    displayName: PLACEHOLDER_DISPLAY_NAME,
     // mainColor intentionally unset → the token default (#0a558c Norbix blue)
     // applies; the Hub MainColor overrides it when present.
   },
@@ -292,7 +307,7 @@ function darken(hex: string, amount = 0.12): string | undefined {
 /**
  * Map the project's Hub Brand onto the CSS design tokens. Only sets a token
  * when the brand provides a value, so unset fields keep the neutral default.
- * Also sets the favicon from the brand icon.
+ * Also sets the favicon from the brand icon and the tab title from the name.
  */
 export function applyBranding(config: ProjectConfig): void {
   if (typeof document === 'undefined') return;
@@ -303,6 +318,11 @@ export function applyBranding(config: ProjectConfig): void {
     setVar('--admin-primary-hover', darken(b.mainColor));
   }
   setVar('--admin-accent', b.accentColor);
+
+  // Browser tab: the project name once known. Until then (and when the boot
+  // never resolves a project) the static metadata title "Admin Portal" stays.
+  const name = projectNameOf(b);
+  if (name) document.title = name;
 
   if (b.iconUrl) {
     let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
