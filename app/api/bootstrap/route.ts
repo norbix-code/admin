@@ -35,7 +35,10 @@ interface BootstrapResponse {
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const projectId = req.nextUrl.searchParams.get('projectId')?.trim();
   if (!projectId) {
-    return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'projectId is required' },
+      { status: 400 },
+    );
   }
 
   const warnings: string[] = [];
@@ -57,7 +60,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // 1) Brand + auth — public, no key needed. Failure is non-fatal.
   try {
     const client = serviceClientForProject(projectId);
-    const config = await client.api.public.getPublicProjectConfig({ projectId });
+    const config = await client.api.public.getPublicProjectConfig({
+      projectId,
+    });
     out.branding = config.branding ?? null;
     out.auth = config.auth ?? null;
   } catch {
@@ -84,8 +89,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       // (NotificationSettings). We return only the catalog, never any user's
       // values.
       const projectResp = await client.hub.account.getProject({ projectId });
-      out.marketingPreferences =
-        projectResp.item?.notificationSettings ?? null;
+      out.marketingPreferences = projectResp.item?.notificationSettings ?? null;
     } catch {
       warnings.push('preferences-unavailable');
     }

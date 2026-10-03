@@ -75,9 +75,9 @@ type StaticModuleMap = Record<
 const staticModules: StaticModuleMap = (() => {
   const glob = (import.meta as unknown as { glob?: unknown }).glob;
   if (typeof glob !== 'function') return {};
-  return (
-    glob as (p: string) => StaticModuleMap
-  )('../../config/projects/*.json');
+  return (glob as (p: string) => StaticModuleMap)(
+    '../../config/projects/*.json',
+  );
 })();
 
 function staticPathFor(projectId: string): string | undefined {
@@ -128,8 +128,7 @@ function merge(
     branding: { ...base.branding, ...(override.branding ?? {}) },
     auth: { ...base.auth, ...(override.auth ?? {}) },
     links: { ...base.links, ...(override.links ?? {}) },
-    adminPortalEnabled:
-      override.adminPortalEnabled ?? base.adminPortalEnabled,
+    adminPortalEnabled: override.adminPortalEnabled ?? base.adminPortalEnabled,
     aiChat: override.aiChat ?? base.aiChat,
   };
 }

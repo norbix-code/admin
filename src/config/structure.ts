@@ -36,7 +36,11 @@ export const DEFAULT_NAV_CARDS: NavCard[] = [
     title: 'Preferences',
     desc: MODULE_ROUTES.preferences.desc,
   },
-  { to: ROUTES.PRIVACY, title: 'Privacy & data', desc: MODULE_ROUTES.legal.desc },
+  {
+    to: ROUTES.PRIVACY,
+    title: 'Privacy & data',
+    desc: MODULE_ROUTES.legal.desc,
+  },
 ];
 
 /** Turn a structure into the nav cards the dashboard renders. */

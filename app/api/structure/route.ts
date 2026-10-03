@@ -28,7 +28,10 @@ import type {
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const HUB_BASE = (process.env.HUB_BASE_URL ?? NORBIX_HUB_URL).replace(/\/$/, '');
+const HUB_BASE = (process.env.HUB_BASE_URL ?? NORBIX_HUB_URL).replace(
+  /\/$/,
+  '',
+);
 const HUB_VERSION = process.env.HUB_VERSION ?? 'v3';
 const API_KEY = process.env.API_KEY;
 const NORBIX_ENV =
