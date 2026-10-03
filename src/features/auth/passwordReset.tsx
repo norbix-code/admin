@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Form } from 'react-final-form';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AuthLayout } from '@/components/layouts';
+import { useAppSelector } from '@/app/hooks';
+import { selectProjectBranding } from '@/features/project/slice';
 import { Button, Alert, Spinner } from '@/components/ui';
 import { TextInputField } from '@/components/forms/fields';
 import {
@@ -18,6 +20,7 @@ import { ROUTES } from '@/routes';
 export function PasswordResetRequest() {
   const [request, { isLoading }] = useRequestPasswordResetMutation();
   const [sent, setSent] = useState(false);
+  const branding = useAppSelector(selectProjectBranding);
 
   const onSubmit = async (values: { email: string }) => {
     try {
@@ -28,7 +31,7 @@ export function PasswordResetRequest() {
   };
 
   return (
-    <AuthLayout>
+    <AuthLayout brandName={branding?.displayName} logoUrl={branding?.logoUrl}>
       <h2 className="mb-4 text-center text-xl font-semibold">Reset password</h2>
       {sent ? (
         <Alert kind="success">
@@ -70,6 +73,7 @@ export function PasswordResetConfirm() {
   const token = params.get('token') ?? '';
   const [confirm, { isLoading, isSuccess, isError }] =
     useConfirmPasswordResetMutation();
+  const branding = useAppSelector(selectProjectBranding);
 
   const onSubmit = async (values: { newPassword: string }) => {
     try {
@@ -80,7 +84,7 @@ export function PasswordResetConfirm() {
   };
 
   return (
-    <AuthLayout>
+    <AuthLayout brandName={branding?.displayName} logoUrl={branding?.logoUrl}>
       <h2 className="mb-4 text-center text-xl font-semibold">
         Choose a new password
       </h2>

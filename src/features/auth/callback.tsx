@@ -1,8 +1,9 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { AuthLayout } from '@/components/layouts';
+import { selectProjectBranding } from '@/features/project/slice';
 import { Alert, Spinner } from '@/components/ui';
-import { useAppDispatch } from '@/app/hooks';
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { signedIn } from './slice';
 import { ROUTES } from '@/routes';
 
@@ -21,6 +22,7 @@ import { ROUTES } from '@/routes';
 export function OAuthCallback() {
   const [params] = useSearchParams();
   const dispatch = useAppDispatch();
+  const branding = useAppSelector(selectProjectBranding);
   const navigate = useNavigate();
 
   // Parse the URL once (pure) — no setState needed. The token branch is the
@@ -49,7 +51,7 @@ export function OAuthCallback() {
   }, [result, dispatch, navigate]);
 
   return (
-    <AuthLayout>
+    <AuthLayout brandName={branding?.displayName} logoUrl={branding?.logoUrl}>
       {error ? (
         <>
           <Alert kind="error">{error}</Alert>

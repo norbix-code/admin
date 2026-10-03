@@ -13,7 +13,9 @@ import {
 } from './icons';
 import { DropdownMenu } from './ui';
 import { ROUTES } from '@/routes';
-import { useAppDispatch } from '@/app/hooks';
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
+import { selectProjectBranding } from '@/features/project/slice';
+import { projectNameOf } from '@/config/projectConfig';
 import { reset } from '@/features/auth/slice';
 import { useLogoutMutation } from '@/services/norbix';
 import { AiChatLauncher } from '@/features/aiChat/launcher';
@@ -57,6 +59,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [logout] = useLogoutMutation();
+  const branding = useAppSelector(selectProjectBranding);
+  const projectName = projectNameOf(branding);
+  const logoUrl = branding?.logoUrl;
 
   const handleSignOut = async () => {
     try {
@@ -71,8 +76,20 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-app">
       <aside className="flex w-60 flex-col border-r border-border-token bg-surface">
-        <div className="px-6 py-5 text-lg font-semibold text-brand">
-          Account
+        {/* Project brand: the logo (alt = project name) or the name itself.
+            "Account" only while no project name is known. */}
+        <div className="px-6 py-5" data-testid="sidebar-brand">
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={projectName ?? 'Account'}
+              className="h-8 max-w-full object-contain"
+            />
+          ) : (
+            <span className="text-lg font-semibold text-brand">
+              {projectName ?? 'Account'}
+            </span>
+          )}
         </div>
         <nav className="flex-1 space-y-1 px-3">
           {NAV.map(({ to, label, icon: Icon }) => (
