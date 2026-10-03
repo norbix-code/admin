@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { NorbixProvider } from '@norbix/react-redux';
+import { NorbixProvider } from '@norbix.ai/react-redux';
 import { ROUTES } from '@/routes';
 import { resolveProjectIdAsync } from '@/config/project';
 import { loadProjectConfig, applyBranding } from '@/config/projectConfig';

@@ -1,6 +1,6 @@
 // The Norbix SDK wiring for the admin portal.
 //
-// We use @norbix/react-redux (RTK Query over the typed @norbix.ai/ts client)
+// We use @norbix.ai/react-redux (RTK Query over the typed @norbix.ai/ts client)
 // instead of hand-written services. The client is project-scoped (projectId
 // from the subdomain) and points at the API URL discovered from /echo. The
 // bearer token comes from the auth slice after sign-in.
@@ -10,7 +10,7 @@
 // recreating the API slice.
 
 import { Norbix } from '@norbix.ai/ts';
-import { createNorbixApi } from '@norbix/react-redux';
+import { createNorbixApi } from '@norbix.ai/react-redux';
 import { API_VERSION, API_PROXY_BASE, HUB_PROXY_BASE } from '@/config/env';
 
 interface ClientParams {

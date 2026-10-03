@@ -10,7 +10,7 @@ techniques** from Cloud while keeping the result safe to **open source**.
 | Build | Vite + React 18 + TS, `@` → `/src` alias, SWC plugin | Copy `vite.config.ts` (trimmed: no Storybook/vitest browser stuff for v1). |
 | State | Redux Toolkit, `configureStore`, feature **slices**, typed `useAppSelector/useAppDispatch` hooks | Same pattern as Cloud's `src/app/store.ts` + `src/app/hooks`. |
 | Data fetching | RTK Query services that call the gateway | Cloud has `services/hub` + `services/api`. Admin keeps **only `services/api`** (end-user data plane) + a tiny **public** service for login config & legal docs. |
-| SDK | `@norbix/react-redux` (RTK Query over the typed Norbix TS SDK) | Use its API-side hooks where they exist instead of hand-writing services. |
+| SDK | `@norbix.ai/react-redux` (RTK Query over the typed Norbix TS SDK) | Use its API-side hooks where they exist instead of hand-writing services. |
 | Styling | Tailwind CSS + the project color tokens | Copy `tailwind.config.cjs` color palette + `postcss.config.cjs`. |
 | Routing | `react-router-dom`, central `routes.ts` constants | Smaller route map (see `features.md`). |
 | Layouts | The *structure* of `authLayout` / content layout, menu, shell | **Rewritten** clean-room (see §3). |
