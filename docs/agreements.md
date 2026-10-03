@@ -49,10 +49,11 @@ All three produce the same shape. Full design:
 
 ## 4. SDK + dev loop
 
-- Data access uses **`@norbix/react-redux`** (RTK Query over the typed
+- Data access uses **`@norbix.ai/react-redux`** (RTK Query over the typed
   `@norbix.ai/ts` SDK), not hand-written services.
-- Local development links the SDK from source for instant HMR — no publish
-  cycle. See [`sdk-local-development.md`](./sdk-local-development.md).
+- Both packages come from npm (since 2026-10-03). An SDK change is tried
+  locally before it is published — see
+  [`sdk-local-development.md`](./sdk-local-development.md).
 
 ## 5. Legal documents (Terms & Conditions, Privacy Policy)
 
