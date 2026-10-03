@@ -8,6 +8,7 @@
 //
 //   node tests/e2e/fake-api-host.mjs            (port FAKE_API_PORT, default 3198)
 //   GET  /__state   → what the portal sent (feedback, stream requests …)
+//   GET  /__assets/logo.svg → the project's brand logo (public config logoUrl)
 //   POST /__reset   → back to the first-visit state; body {"refuseStream":true}
 //                     makes /event-stream answer 403 AiChatChannelRefused
 
@@ -31,6 +32,12 @@ const REPLY = [
   '```',
 ];
 const TOKENS = REPLY.map((line, i) => (i === 0 ? line : `\n${line}`));
+
+// The project's brand logo + icon, served by this host itself (no external
+// URL): a small SVG — a green rounded square with "E2E" — so the branding
+// golden shows a real image, not a broken-image icon.
+const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32" viewBox="0 0 120 32"><rect width="32" height="32" rx="6" fill="#1f7a4d"/><text x="16" y="21" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">E2E</text><text x="40" y="22" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#1f7a4d">Shop</text></svg>`;
+const LOGO_URL = `http://127.0.0.1:${PORT}/__assets/logo.svg`;
 
 let state;
 const reset = (opts = {}) => {
@@ -166,6 +173,14 @@ const server = createServer(async (req, res) => {
     return json(res, 200, rest);
   }
 
+  if (path === '/__assets/logo.svg') {
+    res.writeHead(200, {
+      'content-type': 'image/svg+xml',
+      'cache-control': 'no-cache',
+    });
+    return res.end(LOGO_SVG);
+  }
+
   // ── Hub /echo + public project config (no auth) ──
   if (path === '/v3/echo') {
     return json(res, 200, {
@@ -180,6 +195,13 @@ const server = createServer(async (req, res) => {
     return json(res, 200, {
       displayName: 'E2E Shop',
       adminPortalEnabled: true,
+      // Brand exposed: logo + icon only. No colours, so the chat goldens keep
+      // the default token colours.
+      branding: {
+        displayName: 'E2E Shop',
+        logoUrl: LOGO_URL,
+        iconUrl: LOGO_URL,
+      },
       auth: { socialProviders: [], passkey: false },
       aiChat: {
         enabled: true,
