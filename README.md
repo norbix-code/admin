@@ -33,10 +33,9 @@ features, implementation plan, and devops.
 ```bash
 npm install
 cp .env.example .env     # set VITE_ADMIN_HUB_BASE_URL etc.
-npm run dev              # http://localhost:3100 (uses published SDK packages)
-npm run dev:link         # same, but resolves @norbix/react-redux + @norbix.ai/ts
-                         # to LOCAL SOURCE for instant lib development (HMR)
-npm run build            # tsc -b + vite build
+npm run dev              # http://localhost:3100 (uses the published SDK packages)
+npm run build            # next build
+npm run typecheck        # tsc
 npm run lint             # eslint
 npm test                 # vitest
 ```
@@ -45,12 +44,11 @@ Requires Node ≥ 22.12 (Vite 7).
 
 ### Data access via the Norbix SDK
 
-The portal uses **`@norbix/react-redux`** (RTK Query hooks over the typed
+The portal uses **`@norbix.ai/react-redux`** (RTK Query hooks over the typed
 **`@norbix.ai/ts`** SDK) for data access instead of hand-written services
 (`createNorbixApi` + `NorbixProvider`, wired in `src/services/norbix.ts`).
-To develop the lib and the portal together with no publish/install cycle, see
-[`docs/sdk-local-development.md`](./docs/sdk-local-development.md) and use
-`npm run dev:link`.
+Both come from npm. To try an SDK change before it is published, see
+[`docs/sdk-local-development.md`](./docs/sdk-local-development.md).
 
 For local dev without a `pr_` subdomain, pin a project with
 `VITE_ADMIN_PROJECT_ID` in `.env`, or add a static config at
