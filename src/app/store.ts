@@ -37,6 +37,7 @@ import auth from '@/features/auth/slice';
 import config from '@/config/slice';
 import { IS_DEV } from '@/config/env';
 import project from '@/features/project/slice';
+import aiChat from '@/features/aiChat/slice';
 import { listenerMiddleware } from '@/app/middlewares/listener';
 import { rtkQueryErrorLogger } from '@/app/middlewares/errorCatching';
 
@@ -51,6 +52,7 @@ const reducers = combineReducers({
   config,
   project,
   auth,
+  aiChat,
   [hub.reducerPath]: hub.reducer,
   [norbixApi.reducerPath]: norbixApi.reducer,
   [api.reducerPath]: api.reducer,
@@ -66,6 +68,9 @@ const persistConfig = {
   // RTK Query caches must NOT be persisted — they re-fetch on load and a stale
   // persisted cache would serve outdated data. Same rule as the Cloud store.
   blacklist: [
+    // The open chat is re-read from the entries endpoint on load; a persisted
+    // transcript or a half-sent turn would only resurrect stale state.
+    'aiChat',
     hub.reducerPath,
     norbixApi.reducerPath,
     api.reducerPath,

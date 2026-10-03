@@ -20,13 +20,15 @@
 
 import type {
   ProjectConfig,
+  PublicAiChat,
   StaticProjectConfig,
   SocialProviderId,
   AuthMethod,
   PasswordPolicy,
 } from '@/types/projectConfig';
-import { CONFIG_MODE, IS_DEV, HAS_CUSTOM_HUB_BASE } from './env';
+import { CONFIG_MODE } from './env';
 import { getRuntimeApiRoot } from './runtimeApi';
+import { setProjectHeaders } from './project';
 
 // ── Neutral defaults ────────────────────────────────────────────────
 // Grey / white / Norbix-blue, used conservatively. These render when no Hub
@@ -128,6 +130,7 @@ function merge(
     links: { ...base.links, ...(override.links ?? {}) },
     adminPortalEnabled:
       override.adminPortalEnabled ?? base.adminPortalEnabled,
+    aiChat: override.aiChat ?? base.aiChat,
   };
 }
 
@@ -149,6 +152,12 @@ interface PublicConfigResponse {
     logoUrl?: string;
     iconUrl?: string;
   } | null;
+  // End-user AI chat (item N): on/off + assistants (id, name, welcome). The
+  // assistants list is empty while the chat is off. Absent on older gateways.
+  aiChat?: {
+    enabled?: boolean;
+    assistants?: { id?: string; name?: string; welcome?: string | null }[];
+  } | null;
   auth?: {
     socialProviders?: SocialProviderId[];
     passkey?: boolean;
@@ -157,11 +166,32 @@ interface PublicConfigResponse {
   };
 }
 
+/** Normalise the public `aiChat` section; off unless it says enabled. */
+export function toAiChat(
+  raw: NonNullable<PublicConfigResponse['aiChat']>,
+): PublicAiChat {
+  const enabled = raw.enabled === true;
+  return {
+    enabled,
+    assistants: enabled
+      ? (raw.assistants ?? [])
+          .filter((a) => a.id)
+          .map((a) => ({
+            id: a.id!,
+            name: a.name || 'Assistant',
+            welcome: a.welcome || undefined,
+          }))
+      : [],
+  };
+}
+
 async function loadDynamicConfig(
   projectId: string,
 ): Promise<Partial<StaticProjectConfig> | null> {
   const url = `${getRuntimeApiRoot()}/public/projects/${projectId}/config`;
-  const res = await fetch(url, { headers: { 'X-Norbix-Project': projectId } });
+  const res = await fetch(url, {
+    headers: setProjectHeaders(new Headers(), projectId),
+  });
   if (!res.ok) return null;
   const r = (await res.json()) as PublicConfigResponse;
 
@@ -173,6 +203,8 @@ async function loadDynamicConfig(
   if (typeof r.adminPortalEnabled === 'boolean') {
     out.adminPortalEnabled = r.adminPortalEnabled;
   }
+
+  if (r.aiChat) out.aiChat = toAiChat(r.aiChat);
 
   // The readable project name comes back top-level (not brand-gated). Prefer it
   // for the display name so the portal shows the project title even when brand
@@ -228,14 +260,13 @@ export async function loadProjectConfig(
   // public endpoint (brand + safe auth always; sensitive auth only if exposed).
   let resolved = merge(NEUTRAL_DEFAULTS, await loadStatic(projectId));
 
-  const skipRemote = IS_DEV && !HAS_CUSTOM_HUB_BASE;
-  if (!skipRemote) {
-    try {
-      const remote = await loadDynamicConfig(projectId);
-      if (remote) resolved = merge(resolved, remote);
-    } catch {
-      /* endpoint unavailable — defaults (+ static) stand */
-    }
+  // Always ask the endpoint, dev builds included: the same-origin proxy is
+  // always there (env.ts). Skipping it in dev hid brand, auth and the AI chat.
+  try {
+    const remote = await loadDynamicConfig(projectId);
+    if (remote) resolved = merge(resolved, remote);
+  } catch {
+    /* endpoint unavailable — defaults (+ static) stand */
   }
 
   const config: ProjectConfig = { projectId, ...resolved };

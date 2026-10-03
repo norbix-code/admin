@@ -18,6 +18,24 @@ import { PINNED_PROJECT_ID } from './env';
 
 const PR_PREFIX = /^pr_([0-9A-Za-z]+)$/;
 
+/**
+ * The request headers that carry the project to the gateway. The API host's
+ * global request filter reads `nb-project-id` (after the host, before the
+ * query and the body — gateway CodeMashAppHostBase.cs); the sign-in provider
+ * reads `norbix-project-id`. Send both so every call is scoped the same way.
+ * (`X-Norbix-Project` was sent before and is read by nothing.)
+ */
+export function setProjectHeaders(
+  headers: Headers,
+  projectId: string | null | undefined,
+): Headers {
+  if (projectId) {
+    headers.set('nb-project-id', projectId);
+    headers.set('norbix-project-id', projectId);
+  }
+  return headers;
+}
+
 // The managed-service Hub that owns the custom-domain → projectId mapping. The
 // host is the SDK's canonical public Hub URL (NOT a configurable env): a
 // self-hosted hub is not the managed service and would not answer

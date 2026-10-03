@@ -37,6 +37,10 @@ const FORWARD_REQUEST_HEADERS = [
   'authorization',
   'content-type',
   'accept',
+  // The project header the API host's global request filter reads
+  // (EventMetadataHeaderNames.ProjectId). Without it a data call is not
+  // scoped to the project by header — e.g. /ai/chat/* and /event-stream.
+  'nb-project-id',
   // Canonical tenant-scope headers (AuthStatics.*HeaderKey on the gateway).
   // The credentials auth provider only reads `norbix-project-id`; without it
   // login falls into the account-root scope and fails with
@@ -49,6 +53,9 @@ const FORWARD_REQUEST_HEADERS = [
   'x-cm-accountid',
   'norbix-env',
   'nb-region',
+  // Server-sent events: EventSource sends Last-Event-ID on reconnect so the
+  // gateway can replay what the client missed.
+  'last-event-id',
 ];
 
 // Response headers we strip (hop-by-hop / re-set by Next).
@@ -59,6 +66,12 @@ const STRIP_RESPONSE_HEADERS = new Set([
   'connection',
   'keep-alive',
 ]);
+
+function isEventStream(res: Response): boolean {
+  return (res.headers.get('content-type') ?? '')
+    .toLowerCase()
+    .startsWith('text/event-stream');
+}
 
 function baseFor(target: string): string | null {
   if (target === 'api') return API_BASE;
@@ -108,6 +121,10 @@ async function handle(
       headers,
       body: hasBody ? await req.arrayBuffer() : undefined,
       redirect: 'manual',
+      // When the browser goes away (EventSource.close(), tab closed), abort
+      // the upstream call too — otherwise a long-lived SSE stream to the
+      // gateway stays open after nobody listens.
+      signal: req.signal,
       // @ts-expect-error: Node fetch needs duplex for streamed bodies; harmless here.
       duplex: hasBody ? 'half' : undefined,
     });
@@ -121,6 +138,15 @@ async function handle(
       responseHeaders.set(key, value);
     }
   });
+
+  // Server-sent events must reach the browser as they are written: no
+  // caching, no transform (compression buffers), and no proxy buffering
+  // (nginx and similar honour X-Accel-Buffering). The body is passed through
+  // as a stream, so Next does not buffer it either.
+  if (isEventStream(upstream)) {
+    responseHeaders.set('cache-control', 'no-cache, no-transform');
+    responseHeaders.set('x-accel-buffering', 'no');
+  }
 
   return new Response(upstream.body, {
     status: upstream.status,

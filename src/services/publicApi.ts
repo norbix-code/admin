@@ -12,7 +12,7 @@ import {
   FetchArgs,
   FetchBaseQueryError,
 } from '@reduxjs/toolkit/query/react';
-import { resolveProjectId } from '@/config/project';
+import { resolveProjectId, setProjectHeaders } from '@/config/project';
 import { selectApiRoot } from '@/config/slice';
 import type { RootState } from '@/app/store';
 import type { LegalDocument } from '@/types/user';
@@ -27,7 +27,7 @@ const dynamicBaseQuery: BaseQueryFn<
   const rawBaseQuery = fetchBaseQuery({
     baseUrl: selectApiRoot(state),
     prepareHeaders: (headers) => {
-      if (projectId) headers.set('X-Norbix-Project', projectId);
+      setProjectHeaders(headers, projectId);
       return headers;
     },
   });

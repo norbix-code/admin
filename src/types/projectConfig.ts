@@ -61,6 +61,23 @@ export interface ProjectLinks {
   privacyUrl?: string;
 }
 
+/** One assistant an end user can chat with (public, never the prompt / LLM). */
+export interface PublicAiAssistant {
+  id: string;
+  name: string;
+  welcome?: string;
+}
+
+/**
+ * End-user AI chat from the public config (`aiChat`, gateway item N). The
+ * chat launcher renders only when `enabled`; `assistants` is empty while the
+ * chat is off. Absent on older gateways → treated as off.
+ */
+export interface PublicAiChat {
+  enabled: boolean;
+  assistants: PublicAiAssistant[];
+}
+
 export interface ProjectConfig {
   projectId: string;
   branding: ProjectBranding;
@@ -74,6 +91,8 @@ export interface ProjectConfig {
    * so the portal does not lock itself out before the flag ships.
    */
   adminPortalEnabled?: boolean;
+  /** End-user AI chat on/off + assistants. Absent → chat off. */
+  aiChat?: PublicAiChat;
 }
 
 /** Static / bundled payload shape = ProjectConfig without projectId. */
