@@ -17,7 +17,7 @@ Not in scope: new branding fields on the gateway, dark mode, a mobile header
 1. docs(admin:branding): this task file — done
 2. feat(admin:branding): `AppLayout` sidebar header shows the logo (alt = project name) or the project name; every `AuthLayout` use passes `brandName` + `logoUrl` from the store — done, `src/components/layouts.tsx`, `src/features/auth/passwordReset.tsx`, `src/features/auth/callback.tsx`. Committed together with step 3 as `[2-3]` (one shared helper `projectNameOf` in `projectConfig.ts`).
 3. feat(admin:branding): `applyBranding` sets `document.title` to the project name; the static metadata `Admin Portal` stays as the pre-load fallback — done, `src/config/projectConfig.ts`
-4. test(admin:branding): vitest — public-config mapping (name fallback order, branding absent / present, empty logo, endpoint fails), `projectNameOf`, `applyBranding` (title, favicon, CSS variables) — done, `src/config/projectConfig.branding.test.ts` (13 tests)
+4. test(admin:branding): vitest — public-config mapping (name fallback order, branding absent / present, empty logo, endpoint fails), `projectNameOf`, `applyBranding` (title, favicon, CSS variables) — done, `src/config/projectConfig.branding.test.ts` (12 tests)
 5. test(admin:branding): fake host serves its own SVG logo and returns a `branding` block (logo + icon, no colours); `tests/e2e/branding.spec.ts` (3 tests) + goldens `branding-sign-in` and `branding-shell` (`-chromium-darwin`) — done
 6. chore(admin:branding): checks green, push, pull request — done (results below)
 7. feat(admin:branding): `dashboard.tsx:42` "Norbix Admin" → project name — dropped: that line is the `Placeholder` shown only when NO project resolved, so there is no name to show (see Rejected)
@@ -46,7 +46,7 @@ then `npm ci`. No change to the SDK link paths. Logs: `~/scratch/project-brandin
 | `src/components/layouts.tsx` | `AppLayout` sidebar header: logo `<img alt=name>` or the name; "Account" only when no name; `data-testid="sidebar-brand"` | 2 |
 | `src/features/auth/passwordReset.tsx` | both screens pass `brandName` + `logoUrl` from `selectProjectBranding` | 2 |
 | `src/features/auth/callback.tsx` | passes `brandName` + `logoUrl` from the store | 2 |
-| `src/config/projectConfig.branding.test.ts` | new vitest file (jsdom), 13 tests | 4 |
+| `src/config/projectConfig.branding.test.ts` | new vitest file (jsdom), 12 tests | 4 |
 | `tests/e2e/fake-api-host.mjs` | serves `/__assets/logo.svg`; config gets `branding { displayName, logoUrl, iconUrl }` | 5 |
 | `tests/e2e/branding.spec.ts` | new: sign-in, password reset, signed-in shell; tab title; favicon | 5 |
 | `tests/e2e/branding.spec.ts-snapshots/branding-{sign-in,shell}-chromium-darwin.png` | new goldens | 5 |
@@ -62,7 +62,7 @@ then `npm ci`. No change to the SDK link paths. Logs: `~/scratch/project-brandin
   ```json
   "@norbix.ai/ts": "file:../sdks/norbix-js", // <-- here: no ../sdks on the CI runner
   ```
-- fix(admin:branding): the placeholder name is a page label ("Sign in"), so a project with no name shows "Sign in to Sign in" on the login heading — open, `src/features/auth/login.tsx:97` + `src/config/projectConfig.ts` `PLACEHOLDER_DISPLAY_NAME`. The new sidebar and tab title avoid it via `projectNameOf`; the login heading was left as it was (out of scope).
+- fix(admin:branding): the placeholder name is a page label ("Sign in"), so a project with no name shows "Sign in to Sign in" on the login heading — open, `src/features/auth/login.tsx:98` + `src/config/projectConfig.ts` `PLACEHOLDER_DISPLAY_NAME`. The new sidebar and tab title avoid it via `projectNameOf`; the login heading was left as it was (out of scope).
   ```tsx
   Sign in to {config.branding.displayName} {/* <-- here: "Sign in to Sign in" when the project has no name */}
   ```
