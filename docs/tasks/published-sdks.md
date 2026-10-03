@@ -1,4 +1,5 @@
 # Admin uses the published SDK packages (tracker step 29b)
+This file: /Users/djovaisas/Projects/norbix/worktrees/admin/ci/published-sdks/docs/tasks/published-sdks.md (branch ci/published-sdks)
 
 ## Goal
 
@@ -12,8 +13,10 @@ workflows (they build from this folder only and get the same fix for free).
 ## Plan
 
 1. done — react-redux: lock and dev dependency on `@norbix.ai/ts` 4.4.0, drop
-   the three campaign-message hooks the SDK removed (react-redux
-   `fix/lock-norbix-ts`), so its Release job can publish 1.4.0 with the AI hooks.
+   the three campaign-message hooks the SDK removed, so its Release job can
+   publish the AI hooks — merged (rebase) as
+   https://github.com/norbix-code/react-redux/pull/34, released as
+   `@norbix.ai/react-redux` 1.4.0; react-redux `main` CI, CodeQL and Release green.
 2. done — `package.json`: `file:../sdks/…` → `"@norbix.ai/ts": "^4.4.0"`,
    `"@norbix.ai/react-redux": "^1.4.0"`; the old name `@norbix/react-redux`
    is gone (it was never on npm; the package is published as
@@ -27,14 +30,17 @@ workflows (they build from this folder only and get the same fix for free).
 6. done — docs: `README.md`, `docs/sdk-local-development.md` (published
    packages by default; how to try an unpublished SDK change locally),
    `docs/agreements.md`, `docs/implementation-plan.md`.
-7. todo — after react-redux 1.4.0 is on npm: `npm install` against the
-   registry, run every CI step, commit, PR.
+7. done — lock from the npm registry (`@norbix.ai/react-redux` 1.4.0,
+   `@norbix.ai/ts` 4.4.0); the stale extraneous `../sdks/norbix-react-redux`
+   lock entry removed. Every CI step green locally: `npm ci`, lint, format
+   check, typecheck, test (80 passed), build, production audit. Shipped with
+   `nbx-ship` (squash).
 
 ## Changes
 
 | file | what changed | plan step |
 |---|---|---|
-| `package.json`, `package-lock.json` | published SDK versions | 2, 7 |
+| `package.json`, `package-lock.json` | published SDK versions; stale `../sdks` lock entry removed | 2, 7 |
 | `src/App.tsx`, `src/services/norbix.ts`, `src/app/store.ts` | package name | 3 |
 | `tsconfig.json`, `tsconfig.app.json`, `next.config.mjs` | no `../sdks` wiring | 4 |
 | `vite.config.ts` | source linking on demand only | 5 |
@@ -50,6 +56,13 @@ workflows (they build from this folder only and get the same fix for free).
   `ignore` or a grouped rule for `@norbix.ai/*` would stop this. Left open.
 - react-redux: no hook yet for `hub.email.getEmailPreferencesByLink`
   (added in `@norbix.ai/ts` 4.3.0). Left open.
+- SDK repos (react-redux, sdk-ts, likely all npm SDKs): the CI Security scan
+  (OSV) was red on every branch, `main` included, on 12 advisories no update
+  can fix — packages bundled inside the npm CLI that semantic-release runs,
+  and braces 3.0.3. Fixed in react-redux only, by an `osv-scanner.toml` with
+  exact ids, reasons and `ignoreUntil = 2026-11-03` (react-redux pull request
+  34, second commit). sdk-ts and the other npm SDKs still need the same file.
+  Left open.
 
 ## Rejected / moved out
 
@@ -57,8 +70,7 @@ workflows (they build from this folder only and get the same fix for free).
 
 ## Needs you
 
-- [ ] Commit, push and merge the react-redux fix (command in the chat).
-- [ ] Tell me when `@norbix.ai/react-redux` 1.4.0 is on npm.
+- (none)
 
 ## Open questions
 
