@@ -32,7 +32,9 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 }
 
 /** The `cm_auth_id` claim of a gateway JWT, when it is a `usr_` id. */
-export function loginIdFromToken(token: string | null | undefined): string | null {
+export function loginIdFromToken(
+  token: string | null | undefined,
+): string | null {
   if (!token) return null;
   const claim = decodeJwtPayload(token)?.cm_auth_id;
   return typeof claim === 'string' && isLoginId(claim) ? claim : null;

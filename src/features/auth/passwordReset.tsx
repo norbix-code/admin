@@ -18,15 +18,17 @@ import {
 import { ROUTES } from '@/routes';
 
 export function PasswordResetRequest() {
-  const [request, { isLoading }] = useRequestPasswordResetMutation();
+  const [request, { isLoading, isError }] = useRequestPasswordResetMutation();
   const [sent, setSent] = useState(false);
   const branding = useAppSelector(selectProjectBranding);
 
   const onSubmit = async (values: { email: string }) => {
     try {
       await request({ email: values.email }).unwrap();
-    } finally {
+      // Only a successful call says "sent"; a failure keeps the form open.
       setSent(true);
+    } catch {
+      /* surfaced via isError */
     }
   };
 
@@ -45,6 +47,11 @@ export function PasswordResetRequest() {
               className="flex flex-col gap-4"
               noValidate
             >
+              {isError && (
+                <Alert kind="error">
+                  Could not send the reset link. Please try again.
+                </Alert>
+              )}
               <TextInputField
                 name="email"
                 type="email"

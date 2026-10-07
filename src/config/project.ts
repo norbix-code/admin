@@ -47,8 +47,7 @@ export function setProjectHeaders(
 // /admin-portal-id. Resolution by custom domain is a managed-service feature.
 const MANAGED_SERVICE_HUB_ROOT = `${NORBIX_HUB_URL}/v3`;
 
-const BASE62 =
-  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+const BASE62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
 /**
  * Turn the 32 hex digits of a Guid into the gateway's `pr_{base62}` view id —
