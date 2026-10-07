@@ -1,3 +1,4 @@
+import { skipToken } from '@reduxjs/toolkit/query';
 import { useState } from 'react';
 import { Form } from 'react-final-form';
 import { Card, Button, Alert, Spinner, ConfirmDialog } from '@/components/ui';
@@ -27,7 +28,9 @@ import { createPasskey, isWebAuthnAvailable } from './webauthn';
  */
 export function PasskeysCard() {
   const userId = useAppSelector(selectUserId) ?? '';
-  const { data: userData } = useGetUserQuery({ id: userId });
+  // Wait for the usr_ login id; never query with an empty or numeric id.
+  const userArg = userId ? { id: userId } : skipToken;
+  const { data: userData } = useGetUserQuery(userArg);
   const email =
     userData?.user?.email ?? userData?.user?.generalInfo?.primaryEmail ?? '';
 

@@ -1,3 +1,4 @@
+import { skipToken } from '@reduxjs/toolkit/query';
 import { Form, FormSpy } from 'react-final-form';
 import type { FormApi } from 'final-form';
 import { PageHeader, Card, Button, Alert, Spinner } from '@/components/ui';
@@ -16,7 +17,9 @@ interface Editable {
 
 export function Profile() {
   const userId = useAppSelector(selectUserId) ?? '';
-  const { data, isLoading, isError } = useGetUserQuery({ id: userId });
+  // Wait for the usr_ login id; never query with an empty or numeric id.
+  const userArg = userId ? { id: userId } : skipToken;
+  const { data, isLoading, isError } = useGetUserQuery(userArg);
   const generalInfo = data?.user?.generalInfo;
 
   return (
