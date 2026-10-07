@@ -56,7 +56,7 @@ export default function App() {
     let cancelled = false;
 
     const resolve = async () => {
-      // Resolve the project: pin → pr_ subdomain → meta → custom-domain host
+      // Resolve the project: pin → pr-<hex> host label → meta → custom-domain host
       // lookup against the managed service. Async because the custom-domain
       // path calls hub.norbix.ai/admin-portal-id.
       const projectId = await resolveProjectIdAsync();
