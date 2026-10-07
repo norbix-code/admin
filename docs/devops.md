@@ -7,21 +7,22 @@ image is a static SPA served by nginx, exactly like Cloud.
 
 `admin/deployments/Dockerfile` (multi-stage, same shape as Cloud):
 
-1. **build** — `node:22-alpine`, `npm ci`, `npm run build` (`tsc && vite
-   build`). Build-time flags baked via Vite `define`:
-   - `VITE_ADMIN_RELEASE` = `ManagedService` | `SelfHosted` | `Enterprise`
-   - `VITE_ADMIN_API_BASE_URL`, `VITE_ADMIN_API_VERSION`
-   - `VITE_ADMIN_PROJECT_ID` (optional; pins the project for custom-domain
-     self-hosted builds)
-2. **runtime** — `nginx:1.27-alpine`, serves `/dist`, runs as unprivileged
-   `nginx` user, listens on `8080`, SPA fallback to `index.html`, `/healthz`.
+1. **build** — `node:22-alpine`, `npm ci`, `next build` (standalone output).
+   Browser values are inlined at build time, so they are build args:
+   - `NEXT_PUBLIC_ADMIN_PROJECT_ID` (optional; pins the project for
+     self-hosted / custom-domain builds)
+   - `NEXT_PUBLIC_ADMIN_CONFIG_MODE` (`dynamic` default, or `static`)
+2. **runtime** — `node server.js` as an unprivileged user on `3100`. Server
+   env at `docker run`: `API_KEY` (service-user key, self-hosted),
+   `HUB_BASE_URL`, `API_BASE_URL`, `ENV`. Managed vs self-hosted comes from
+   `/echo` and from whether `API_KEY` is set.
 
 Build examples:
 
 ```
-docker build -t admin:managed     --build-arg VITE_ADMIN_RELEASE=ManagedService .
-docker build -t admin:selfhosted  --build-arg VITE_ADMIN_RELEASE=SelfHosted \
-                                   --build-arg VITE_ADMIN_PROJECT_ID=7Hk2 .
+docker build -f deployments/Dockerfile -t admin:managed .
+docker build -f deployments/Dockerfile -t admin:selfhosted \
+  --build-arg NEXT_PUBLIC_ADMIN_PROJECT_ID=pr_5R4dlqJeXx943tOzSDEwbS .
 ```
 
 `admin/deployments/nginx/default.conf` matches Cloud's: long cache on hashed
@@ -38,7 +39,7 @@ devops/k8s/
   deployments/managed-service/admin.yaml  # Deployment (managed)
   deployments/self-hosted/admin.yaml      # Deployment (self-hosted)
   services/managed-service/admin.yaml     # ClusterIP Service
-  ingress/admin.yaml                      # wildcard ingress for pr_*.admin
+  ingress/admin.yaml                      # wildcard ingress for pr-<hex>.admin
 ```
 
 ### ConfigMap (`norbix-admin-config`)
@@ -69,12 +70,12 @@ host: "*.admin.norbix.ai"   →  service: admin
   ACME DNS-01, since HTTP-01 can't do wildcards). The bare `admin.norbix.ai`
   also routes to the same service (renders the blank placeholder).
 - **Custom domains (CNAME):** the customer CNAMEs `admin.<their-domain>` to
-  `pr_7Hk2.admin.norbix.ai`. For TLS on the custom host we either (a) ask them
+  `pr-<32 hex>.admin.norbix.ai` (the project's host label). For TLS on the custom host we either (a) ask them
   to terminate TLS at their edge, or (b) issue a per-host cert via cert-manager
   for the custom domain and add an ingress rule. Because the CNAME target
   carries the project id, the SPA still resolves the project; for the custom
-  host the ingress injects `X-Norbix-Project: 7Hk2` (annotation) so the SPA
-  can read it when the visible host has no `pr_` prefix.
+  host the portal asks the managed Hub (`/admin-portal-id?host=`) because the
+  visible host has no `pr-` label.
 
 ### Secrets
 

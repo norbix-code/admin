@@ -8,19 +8,25 @@ render the unauthenticated login screen.
 On boot, the portal reads the project id from the **host**:
 
 ```
-pr_7Hk2.admin.norbix.ai   →  projectId = "7Hk2"
-admin.laimingaspilvukas.lt (CNAME → pr_7Hk2.admin.norbix.ai) → projectId = "7Hk2"
+pr-4c0e7b1a8f9d4e2aa1b3c5d7e9f0a1b2.admin.norbix.ai  →  projectId = "pr_5R4dlqJeXx943tOzSDEwbS"
+admin.laimingaspilvukas.lt (CNAME → pr-4c0e….admin.norbix.ai) → host lookup → projectId
 admin.norbix.ai           →  no projectId  →  blank placeholder
 ```
 
 Rules:
 
-- The host's leftmost label must match `^pr_([0-9A-Za-z]+)$`. The captured
-  group is the base62 project id.
+- The host's leftmost label must match `^pr-([0-9a-f]{32})$`, any case — the
+  gateway's `ProjectId.HostLabel` (`ProjectId.TryParseFromHost` reads it the
+  same way). The 32 hex digits are the project Guid; the portal converts them
+  to the `pr_{base62}` view id with the gateway's own steps
+  (`Guid.ToByteArray` order → little-endian number → base62), tested against
+  .NET output in `src/config/project.test.ts`.
+- The old `pr_{base62}` host form is not read: `_` is not a legal host
+  character and browsers lower-case the host, which breaks base62.
 - A CNAME does not change the browser's visible host, so for custom domains
   the portal needs the id another way. Two supported mechanisms:
-  1. **Build-time pin** (self-hosted/enterprise): `VITE_ADMIN_PROJECT_ID` is
-     baked into the image. The operator builds one image per project.
+  1. **Build-time pin** (self-hosted/enterprise): `NEXT_PUBLIC_ADMIN_PROJECT_ID`
+     is baked into the image (`--build-arg`). One image per project.
   2. **Edge header** (managed service custom domains): the ingress injects an
      `X-Norbix-Project` header / rewrites a known path that the runtime config
      shim reads. (See `devops.md`.)

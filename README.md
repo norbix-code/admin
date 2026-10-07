@@ -3,8 +3,9 @@
 The **Admin Portal** is the out-of-the-box, self-service portal for a Norbix
 project's **end users**. When a developer doesn't have time to build their own
 user dashboard, this gives their users a ready-made one: sign in, manage
-password & 2FA, edit their profile, control marketing preferences, and handle
-data-privacy requests. It also hosts the project's public terms & privacy
+password & passkeys, edit their profile, and choose which messages they get
+(the communication structure the project defines in Cloud). The Privacy & data
+page (export / delete) is hidden until the gateway has its endpoints. It also hosts the project's public terms & privacy
 policy at a stable URL (usable in app-store listings).
 
 It is open source (MIT) and talks **only to the Norbix API gateway** (the
@@ -12,17 +13,21 @@ end-user data plane), never to the Hub.
 
 ## How a project is selected
 
-One deployment serves many projects. The project id lives in the **subdomain**:
+One deployment serves many projects. The project lives in the **host label**
+— the gateway's `ProjectId.HostLabel`, `pr-` + the project Guid as 32
+lower-case hex digits (DNS-safe: no `_`, one case):
 
 ```
-pr_{base62}.admin.norbix.ai     →  that project's login screen
-admin.norbix.ai                 →  blank placeholder (no project)
+pr-4c0e7b1a8f9d4e2aa1b3c5d7e9f0a1b2.admin.norbix.ai  →  project pr_5R4dlqJeXx943tOzSDEwbS
+admin.norbix.ai                                       →  blank placeholder (no project)
 ```
 
-Point a custom domain at it with a CNAME:
+The portal turns the label back into the `pr_{base62}` id
+(`ProjectId.ViewId`) the gateway reads (`src/config/project.ts`). Point a
+custom domain at it with a CNAME:
 
 ```
-admin.yourapp.com  CNAME  pr_7Hk2.admin.norbix.ai
+admin.yourapp.com  CNAME  pr-4c0e7b1a8f9d4e2aa1b3c5d7e9f0a1b2.admin.norbix.ai
 ```
 
 See [`docs/`](./docs) for the full architecture, login-config resolution,
@@ -50,9 +55,10 @@ The portal uses **`@norbix.ai/react-redux`** (RTK Query hooks over the typed
 Both come from npm. To try an SDK change before it is published, see
 [`docs/sdk-local-development.md`](./docs/sdk-local-development.md).
 
-For local dev without a `pr_` subdomain, pin a project with
-`VITE_ADMIN_PROJECT_ID` in `.env`, or add a static config at
-`config/projects/{id}.json` and visit with that id.
+For local dev without a `pr-<hex>` host, pin a project with
+`NEXT_PUBLIC_ADMIN_PROJECT_ID` in `.env` (a Docker image takes it as
+`--build-arg NEXT_PUBLIC_ADMIN_PROJECT_ID=pr_…`: Next inlines it at build
+time).
 
 ## Tech
 
