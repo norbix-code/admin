@@ -3,8 +3,9 @@
 // own config — the presence of API_KEY — NOT a client hint and NOT a mode flag:
 //
 //   API_KEY set   → self-hosted → call the PUBLIC Hub endpoint
-//       GET {hub}/{v}/admin-portal/structure
-//     authenticated as the project's AdminPortalManager service user.
+//       GET {hub}/{v}/account/projects/{projectId}/admin-portal/structure
+//     (gateway GetAdminPortalStructure) through the SDK, authenticated as the
+//     project's AdminPortalManager service user (its API key, task P3).
 //
 //   API_KEY unset → managed     → call the PRIVATE internal endpoint
 //       GET {hub}/internal/admin-portal/structure?projectId=…
@@ -17,6 +18,7 @@
 import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
 import { NORBIX_HUB_URL } from '@norbix.ai/ts';
+import { serviceClientForProject } from '../../lib/serverNorbix';
 // Type-only import (erased at build) — the single admin-repo definition of the
 // structure shapes lives in portalApi. Both will be replaced by the generated
 // @norbix.ai/ts DTOs after the gateway SDK regen (G7).
@@ -32,7 +34,6 @@ const HUB_BASE = (process.env.HUB_BASE_URL ?? NORBIX_HUB_URL).replace(
   /\/$/,
   '',
 );
-const HUB_VERSION = process.env.HUB_VERSION ?? 'v3';
 const API_KEY = process.env.API_KEY;
 const NORBIX_ENV =
   process.env.ENV && process.env.ENV.length > 0 ? process.env.ENV : undefined;
@@ -73,29 +74,32 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // per-project key.
   const isSelfHosted = Boolean(API_KEY);
 
-  const headers: Record<string, string> = { accept: 'application/json' };
-  if (NORBIX_ENV) headers['norbix-env'] = NORBIX_ENV;
-
-  let url: string;
-  if (isSelfHosted) {
-    // Public endpoint — authenticate as the service user.
-    headers.authorization = `Bearer ${API_KEY}`;
-    headers['x-cm-projectid'] = projectId;
-    url = `${HUB_BASE}/${HUB_VERSION}/admin-portal/structure`;
-  } else {
-    // Managed: private internal endpoint — network-trusted, no key.
-    url = `${HUB_BASE}/internal/admin-portal/structure?projectId=${encodeURIComponent(projectId)}`;
-  }
-
   try {
-    const res = await fetch(url, { headers, cache: 'no-store' });
-    if (!res.ok) {
-      return NextResponse.json(
-        { ...defaultStructure(projectId), warnings: ['structure-unavailable'] },
-        { status: 200 },
-      );
+    let structure: Partial<AdminPortalStructure>;
+    if (isSelfHosted) {
+      // Public endpoint, as the service user. The SDK fills {projectId} into
+      // /{v}/account/projects/{projectId}/admin-portal/structure and sends the
+      // key as the bearer token, plus the project and env headers.
+      structure = await serviceClientForProject(
+        projectId,
+      ).hub.account.getAdminPortalStructure({ projectId });
+    } else {
+      // Managed: private internal endpoint — network-trusted, no key.
+      const headers: Record<string, string> = { accept: 'application/json' };
+      if (NORBIX_ENV) headers['norbix-env'] = NORBIX_ENV;
+      const url = `${HUB_BASE}/internal/admin-portal/structure?projectId=${encodeURIComponent(projectId)}`;
+      const res = await fetch(url, { headers, cache: 'no-store' });
+      if (!res.ok) {
+        return NextResponse.json(
+          {
+            ...defaultStructure(projectId),
+            warnings: ['structure-unavailable'],
+          },
+          { status: 200 },
+        );
+      }
+      structure = (await res.json()) as Partial<AdminPortalStructure>;
     }
-    const structure = (await res.json()) as Partial<AdminPortalStructure>;
     // Backfill a usable shape if the gateway returned a sparse/empty body.
     return NextResponse.json(
       {
