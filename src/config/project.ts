@@ -6,7 +6,9 @@
 //   2. The managed host label — pr-{32 lower-case hex}.admin.norbix.ai, the
 //      gateway's ProjectId.HostLabel (DNS-safe: no '_', one case). It is turned
 //      back into the pr_{base62} id (ProjectId.ViewId) the gateway reads.
-//   3. A <meta name="norbix-project"> tag, if an edge/host injected one.
+//   3. A <meta name="norbix-project"> tag — emitted by the root layout from
+//      the RUNTIME server env PROJECT_ID (self-hosted public image, see
+//      app/lib/runtimeProject.ts), or injected by an edge/host.
 //   4. Custom domain (e.g. admin.laimingaspilvukas.lt): the host carries no
 //      pr- label, so ASK the managed service — GET hub.norbix.ai/{v}/admin-portal-id
 //      ?host=<host> → { projectId } or 404. Only the managed-service Hub answers
