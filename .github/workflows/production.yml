@@ -1,0 +1,139 @@
+name: Production · Build & Deploy
+
+# Release build of the ADMIN portal for the Managed Service production box
+# (norbix.ai, Hostinger k3s). Same tag convention as gateway/cloud release.yml:
+#
+#   push a tag  ms-v2.1.0  → build `admin:2.1.0` (linux/amd64 + linux/arm64)
+#                            → dispatch `production-deploy` to codemash-io/devops
+#   Actions → Run workflow → pick the version
+#
+# Recommended flow: staging-ms-v2.1.0 (staging.yml, staging box) → verify →
+# ms-v2.1.0 on the SAME commit → production. devops records the image in
+# production/versions.yaml and applies the production workspace behind the
+# GitHub Environment `production` (required reviewers).
+#
+# The image is the same build for every edition (the portal reads the edition
+# at runtime from the Hub's /echo). NOTE: the managed overlay in devops does
+# not deploy admin yet (admin.yaml commented out) — until it does, the record
+# is kept and the deploy's `set image` for admin is a no-op.
+#
+# The dispatch is OFF until the repository variable PRODUCTION_DEPLOY_ENABLED
+# is "true" (the build still runs and pushes).
+#
+# Secrets: AWS_ROLE_ARN, DEVOPS_DISPATCH_TOKEN — the same ones staging.yml uses.
+# Variable: ECR_REGISTRY (optional — falls back to the norbix account registry)
+
+on:
+  push:
+    tags: ['ms-v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 2.1.0) — becomes the image tag admin:<version>'
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: production-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.p.outputs.version }}
+    steps:
+      - id: p
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#ms-v}"
+          else
+            VERSION="${INPUT_VERSION#v}"
+          fi
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$'; then
+            echo "::error::Version '$VERSION' is not X.Y.Z[-suffix]"; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building admin:$VERSION"
+
+  build-push:
+    needs: plan
+    runs-on: ubuntu-22.04
+    outputs:
+      image_ref: ${{ steps.ref.outputs.image_ref }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-west-2
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up QEMU (arm64 build on an amd64 runner)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Compute image reference
+        id: ref
+        run: |
+          REGISTRY="${{ vars.ECR_REGISTRY }}"
+          [ -z "$REGISTRY" ] && REGISTRY="${{ steps.ecr.outputs.registry }}"
+          echo "image_ref=$REGISTRY/norbix/admin:${{ needs.plan.outputs.version }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push (amd64 + arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deployments/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: false
+          tags: ${{ steps.ref.outputs.image_ref }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=production
+          cache-to: type=gha,mode=max,scope=production
+
+  notify-devops:
+    name: Trigger production deploy
+    needs: [plan, build-push]
+    if: vars.PRODUCTION_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Send repository_dispatch to devops
+        env:
+          TOKEN: ${{ secrets.DEVOPS_DISPATCH_TOKEN }}
+          IMAGE: ${{ needs.build-push.outputs.image_ref }}
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg i "$IMAGE" \
+            --arg sha "${{ github.sha }}" --arg branch "${{ github.ref_name }}" \
+            '{ event_type: "production-deploy",
+               client_payload: { release: "managed", source: "admin", sha: $sha, branch: $branch,
+                                 services: [ { name: "admin", image: $i } ] } }')
+          echo "$PAYLOAD" | jq .
+
+          STATUS=$(curl -s --http1.1 --retry 5 --retry-delay 5 -o /tmp/dispatch-resp.txt -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/codemash-io/devops/dispatches \
+            -d "$PAYLOAD")
+          if [ "$STATUS" != "204" ]; then
+            echo "GitHub answered HTTP $STATUS:"; cat /tmp/dispatch-resp.txt
+            echo "::error::Dispatch rejected (HTTP $STATUS). Check DEVOPS_DISPATCH_TOKEN (expired? Contents: Read and write on codemash-io/devops?)"
+            exit 1
+          fi
+          echo "devops notified — approve 'Production · Deploy' in codemash-io/devops (environment production)"
