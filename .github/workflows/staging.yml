@@ -2,8 +2,10 @@ name: Staging · Build & Deploy
 
 # Continuous deployment of the ADMIN portal to the staging box (Hostinger, k3s).
 #
-# Admin ships only for managed + enterprise (there is no community-admin
-# image), so the triggers are:
+# This workflow stages managed + enterprise only. The self-hosted
+# community-admin image is the SAME build (the edition is decided at runtime
+# from the Hub's /echo `release`, never at build time) and is not staged here,
+# so the triggers are:
 #
 #   push a tag  staging-ms-v2.1.0   → build `admin` (ManagedService) → deploy to norbix-ms
 #   push a tag  staging-ent-v2.1.0  → build `enterprise-admin` (Enterprise) → deploy to norbix-enterprise
@@ -30,7 +32,7 @@ on:
   workflow_dispatch:
     inputs:
       release:
-        description: 'Release to build & deploy (admin has no self-hosted image)'
+        description: 'Release to build & deploy (community-admin is not staged here)'
         required: true
         default: 'managed'
         type: choice
@@ -65,7 +67,7 @@ jobs:
               staging-managed-*)     RELEASE=managed    ; VERSION="${TAG#staging-managed-}" ;;
               staging-ms-*)          RELEASE=managed    ; VERSION="${TAG#staging-ms-}" ;;
               staging-self-hosted-*|staging-sh-*)
-                echo "::notice::Admin has no self-hosted image — nothing to build for '$TAG'."
+                echo "::notice::Admin self-hosted (community-admin) is not staged by this workflow — nothing to build for '$TAG'."
                 echo "release=skip" >> "$GITHUB_OUTPUT"; exit 0 ;;
               *) echo "::error::Tag '$TAG' must look like staging-<ms|ent>-v<X.Y.Z>"; exit 1 ;;
             esac
@@ -125,8 +127,9 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ steps.ref.outputs.image_ref }}
-          build-args: |
-            VITE_ADMIN_RELEASE=${{ needs.plan.outputs.flavor }}
+          # No edition build arg: the Dockerfile has none and the portal reads
+          # the edition at runtime (/echo `release`), so every flavour is the
+          # same build. `flavor` only scopes the cache.
           cache-from: type=gha,scope=staging-${{ needs.plan.outputs.flavor }}
           cache-to: type=gha,mode=max,scope=staging-${{ needs.plan.outputs.flavor }}
 

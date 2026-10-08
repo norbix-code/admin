@@ -12,16 +12,26 @@
 #   HUB_BASE_URL   — e.g. https://hub.norbix.ai
 #   API_BASE_URL   — e.g. https://api.norbix.ai
 #   ENV            — optional Norbix environment (staging/test); unset = PROD
+#   PROJECT_ID     — self-hosted: the project this portal serves (pr_{base62}
+#                    or pr-{32 hex}). Emitted per request as a meta tag, so one
+#                    public image works for any customer on any domain.
+#
+# There is NO edition build arg: Community / ManagedService / Enterprise is
+# decided at RUNTIME (the Hub's /echo `release`, and API_KEY present =
+# self-hosted). The same build is published as admin, enterprise-admin and
+# community-admin.
 #
 # Browser values (NEXT_PUBLIC_*) are the exception: Next inlines them into the
-# bundle at BUILD time, so they are build args, not runtime env:
-#   NEXT_PUBLIC_ADMIN_PROJECT_ID   — pin one project (self-hosted / custom
-#                                    domain); skips host-label resolution
+# bundle at BUILD time, so they are build args, not runtime env. Leave them
+# EMPTY for any published image (they would pin every user of the image):
+#   NEXT_PUBLIC_ADMIN_PROJECT_ID   — private single-project builds only;
+#                                    prefer the runtime PROJECT_ID
 #   NEXT_PUBLIC_ADMIN_CONFIG_MODE  — 'dynamic' (default) or 'static'
 #
-#   docker build -f deployments/Dockerfile -t norbix-admin \
-#     --build-arg NEXT_PUBLIC_ADMIN_PROJECT_ID=pr_xxxx .
-#   docker run -p 3100:3100 -e API_KEY=... norbix-admin
+#   docker build -f deployments/Dockerfile -t norbix/community-admin .
+#   docker run -p 3100:3100 -e PROJECT_ID=pr_xxxx -e API_KEY=... \
+#     -e HUB_BASE_URL=https://hub.example.com \
+#     -e API_BASE_URL=https://api.example.com norbix/community-admin
 
 ARG NODE_VERSION=22
 

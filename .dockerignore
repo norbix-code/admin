@@ -1,7 +1,67 @@
+# Build context for deployments/Dockerfile (`COPY . .` in the build stage).
+# The image is PUBLIC (community-admin), so keep secrets, local state, test
+# artefacts and anything the `next build` does not need out of the context.
+# Needed by the build: package*.json, next.config.mjs, tsconfig*.json,
+# next-env.d.ts, postcss/tailwind config, app/, src/, public/, config/.
+
+# Dependencies / build output (rebuilt inside the image)
 node_modules
 dist
+.next
+out
+build
+*.tsbuildinfo
+
+# VCS / CI / editor / OS
 .git
-.env
-*.local
+.gitignore
+.github
+.vscode
+.idea
+*.swp
 .DS_Store
+Thumbs.db
+
+# Env files and local state — every variant (the build reads none of them;
+# runtime config is passed with `docker run -e` / k8s env)
+.env
+.env.*
+*.local
+.local
+.claude
+.cursor
+
+# Keys and certificates
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+*.crt
+*.cer
+id_rsa*
+*.keystore
+
+# Tests and test artefacts (the image runs no tests)
+tests
+test-results
+playwright-report
+blob-report
+coverage
+.nyc_output
+**/*.test.ts
+**/*.test.tsx
+vitest.config.ts
+
+# Vite-era tooling not used by `next build`
+vite.config.ts
+index.html
+tsconfig.node.json
+
+# Docs, logs and Docker files themselves
 docs
+*.md
+*.log
+npm-debug.log*
+deployments
+.dockerignore
