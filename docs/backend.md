@@ -86,7 +86,7 @@ same call:
   authorization** — no API key, no key lookup, no key vending. It returns
   structure, never a key. The server passes `projectId`, derived from the
   end-user host/subdomain (never a browser field). The environment is derived
-  from the host (e.g. `test.pr_x.admin.norbix.ai`).
+  from the host (e.g. `test.pr-<hex>.admin.norbix.ai`).
 - **Self-hosted** (forker): your backend calls the **public** Hub structure
   endpoint authenticated as the project's `AdminPortalManager` service-user key
   (in `API_KEY`), with normal IAM/tenancy clamping. OR you ship a hardcoded
@@ -116,7 +116,7 @@ Runtime (read by the Node server — NOT baked into the bundle):
 > skip-remote config heuristic — it is NOT the Norbix `ENV` above.
 
 Browser-facing config still uses the public, non-secret values; the project id
-is resolved as before (pin → `pr_` subdomain → meta → managed-host lookup).
+is resolved as before (pin → `pr-<hex>` host label → meta → managed-host lookup).
 
 ## Single Docker image
 

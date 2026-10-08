@@ -12,9 +12,15 @@
 #   HUB_BASE_URL   — e.g. https://hub.norbix.ai
 #   API_BASE_URL   — e.g. https://api.norbix.ai
 #   ENV            — optional Norbix environment (staging/test); unset = PROD
-#   NEXT_PUBLIC_*  — anything the browser needs (config mode, etc.)
 #
-#   docker build -f deployments/Dockerfile -t norbix-admin .
+# Browser values (NEXT_PUBLIC_*) are the exception: Next inlines them into the
+# bundle at BUILD time, so they are build args, not runtime env:
+#   NEXT_PUBLIC_ADMIN_PROJECT_ID   — pin one project (self-hosted / custom
+#                                    domain); skips host-label resolution
+#   NEXT_PUBLIC_ADMIN_CONFIG_MODE  — 'dynamic' (default) or 'static'
+#
+#   docker build -f deployments/Dockerfile -t norbix-admin \
+#     --build-arg NEXT_PUBLIC_ADMIN_PROJECT_ID=pr_xxxx .
 #   docker run -p 3100:3100 -e API_KEY=... norbix-admin
 
 ARG NODE_VERSION=22
@@ -33,7 +39,13 @@ RUN --mount=type=cache,target=/root/.npm \
 # ─────────────────────────────────────────────────────────────────
 FROM node:${NODE_VERSION}-alpine AS build
 WORKDIR /app
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+# Inlined into the browser bundle by `next build` (see the header). Empty =
+# not pinned: the project comes from the host label / custom-domain lookup.
+ARG NEXT_PUBLIC_ADMIN_PROJECT_ID=""
+ARG NEXT_PUBLIC_ADMIN_CONFIG_MODE=""
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 \
+    NEXT_PUBLIC_ADMIN_PROJECT_ID=${NEXT_PUBLIC_ADMIN_PROJECT_ID} \
+    NEXT_PUBLIC_ADMIN_CONFIG_MODE=${NEXT_PUBLIC_ADMIN_CONFIG_MODE}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

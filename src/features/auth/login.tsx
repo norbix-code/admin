@@ -13,6 +13,8 @@ import { useLoginMutation } from '@/services/norbix';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { signedIn, selectIsAuthenticated } from './slice';
 import { PasskeySignInButton } from './passkeySignIn';
+import { isWebAuthnAvailable } from './webauthn';
+import { useGetLegalDocumentQuery } from '@/services/publicApi';
 import { ROUTES } from '@/routes';
 import type {
   ProjectConfig,
@@ -60,6 +62,10 @@ export function Login({ config }: { config: ProjectConfig }) {
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
 
   const { socialProviders, passkey, methods, passwordPolicy } = config.auth;
+  // The passkey button renders nothing without WebAuthn, so only count it when
+  // the browser can use it — otherwise "or continue with" would stand alone.
+  const showPasskey = passkey && isWebAuthnAvailable();
+  const { termsUrl, privacyUrl } = useLegalLinks(config);
 
   useEffect(() => {
     if (isAuthenticated) navigate(ROUTES.HOME, { replace: true });
@@ -149,13 +155,13 @@ export function Login({ config }: { config: ProjectConfig }) {
         )}
       </Form>
 
-      {(socialProviders.length > 0 || passkey) && (
+      {(socialProviders.length > 0 || showPasskey) && (
         <div className="mt-6">
           <div className="mb-4 text-center text-xs text-fg-muted">
             or continue with
           </div>
           <div className="flex flex-col gap-2">
-            {passkey && <PasskeySignInButton />}
+            {showPasskey && <PasskeySignInButton />}
             {socialProviders.map((p) => (
               <a
                 key={p}
@@ -175,16 +181,16 @@ export function Login({ config }: { config: ProjectConfig }) {
         </Link>
       </div>
 
-      {(config.links.termsUrl || config.links.privacyUrl) && (
+      {(termsUrl || privacyUrl) && (
         <div className="mt-8 text-center text-xs text-fg-subtle">
-          {config.links.termsUrl && (
-            <a href={config.links.termsUrl} className="hover:underline">
+          {termsUrl && (
+            <a href={termsUrl} className="hover:underline">
               Terms
             </a>
           )}
-          {config.links.termsUrl && config.links.privacyUrl && ' · '}
-          {config.links.privacyUrl && (
-            <a href={config.links.privacyUrl} className="hover:underline">
+          {termsUrl && privacyUrl && ' · '}
+          {privacyUrl && (
+            <a href={privacyUrl} className="hover:underline">
               Privacy
             </a>
           )}
@@ -192,4 +198,29 @@ export function Login({ config }: { config: ProjectConfig }) {
       )}
     </AuthLayout>
   );
+}
+
+/**
+ * Terms / Privacy links under the sign-in form. A link set in the project
+ * config wins; otherwise the portal's own /legal/* page is linked when Cloud
+ * has published that document (Project Settings → Access, "expose legal").
+ */
+function useLegalLinks(config: ProjectConfig): {
+  termsUrl?: string;
+  privacyUrl?: string;
+} {
+  const terms = useGetLegalDocumentQuery('terms', {
+    skip: Boolean(config.links.termsUrl),
+  });
+  const privacy = useGetLegalDocumentQuery('privacy', {
+    skip: Boolean(config.links.privacyUrl),
+  });
+  return {
+    termsUrl:
+      config.links.termsUrl ??
+      (terms.data?.available ? ROUTES.LEGAL_TERMS : undefined),
+    privacyUrl:
+      config.links.privacyUrl ??
+      (privacy.data?.available ? ROUTES.LEGAL_PRIVACY : undefined),
+  };
 }

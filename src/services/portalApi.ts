@@ -14,10 +14,20 @@ import { CodeMashHub2 } from '@norbix.ai/ts/types/hub';
 export type AdminPortalModule = CodeMashHub2.AdminPortalModuleDto;
 export type AdminPortalStructure = CodeMashHub2.AdminPortalStructureDto;
 
+/**
+ * The part of GET /api/bootstrap the screens use: the communication structure
+ * Cloud defines (project NotificationSettings), read server-side with the
+ * service-user key. Null when the backend has no key or the read failed.
+ */
+export interface PortalBootstrap {
+  marketingPreferences: CodeMashHub2.NotificationSettingsDto | null;
+  warnings: string[];
+}
+
 export const portalApi = createApi({
   reducerPath: 'portalApi',
   baseQuery: fetchBaseQuery({ baseUrl: '/api' }),
-  tagTypes: ['Structure'],
+  tagTypes: ['Structure', 'Bootstrap'],
   endpoints: (builder) => ({
     // GET /api/structure?projectId=… — the backend reads the real structure
     // server-side and always returns a usable layout. The backend itself decides
@@ -32,7 +42,18 @@ export const portalApi = createApi({
         { type: 'Structure', id: arg.projectId },
       ],
     }),
+    // GET /api/bootstrap?projectId=… — privileged catalogs (communication
+    // structure) fetched by the backend with the service key, never the browser.
+    getBootstrap: builder.query<PortalBootstrap, { projectId: string }>({
+      query: ({ projectId }) => ({
+        url: `/bootstrap?projectId=${encodeURIComponent(projectId)}`,
+        method: 'GET',
+      }),
+      providesTags: (_result, _error, arg) => [
+        { type: 'Bootstrap', id: arg.projectId },
+      ],
+    }),
   }),
 });
 
-export const { useGetStructureQuery } = portalApi;
+export const { useGetStructureQuery, useGetBootstrapQuery } = portalApi;

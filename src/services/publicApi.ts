@@ -14,6 +14,7 @@ import {
 } from '@reduxjs/toolkit/query/react';
 import { resolveProjectId, setProjectHeaders } from '@/config/project';
 import { selectApiRoot } from '@/config/slice';
+import { selectSelectedProjectId } from '@/features/project/slice';
 import type { RootState } from '@/app/store';
 import type { LegalDocument } from '@/types/user';
 
@@ -23,7 +24,13 @@ const dynamicBaseQuery: BaseQueryFn<
   FetchBaseQueryError
 > = (args, apiArg, extra) => {
   const state = apiArg.getState() as RootState;
-  const projectId = resolveProjectId();
+  // The project resolved at boot (custom domains included — their id comes
+  // from the async host lookup, which resolveProjectId() alone cannot see).
+  const projectId = selectSelectedProjectId(state) ?? resolveProjectId();
+  // Endpoints write `{projectId}` in their url; fill it in here.
+  const fill = (u: string) => u.replace('{projectId}', projectId ?? '');
+  const filled =
+    typeof args === 'string' ? fill(args) : { ...args, url: fill(args.url) };
   const rawBaseQuery = fetchBaseQuery({
     baseUrl: selectApiRoot(state),
     prepareHeaders: (headers) => {
@@ -31,7 +38,7 @@ const dynamicBaseQuery: BaseQueryFn<
       return headers;
     },
   });
-  return rawBaseQuery(args, apiArg, extra);
+  return rawBaseQuery(filled, apiArg, extra);
 };
 
 export const publicApi = createApi({
@@ -40,7 +47,7 @@ export const publicApi = createApi({
   endpoints: (builder) => ({
     getLegalDocument: builder.query<LegalDocument, 'terms' | 'privacy'>({
       query: (kind) => ({
-        url: `/public/projects/${resolveProjectId()}/legal/${kind}`,
+        url: `/public/projects/{projectId}/legal/${kind}`,
         method: 'GET',
       }),
       // Normalize: the endpoint returns { kind, title?, body, available }.

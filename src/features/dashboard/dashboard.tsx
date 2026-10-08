@@ -42,7 +42,7 @@ export function Placeholder() {
       <h1 className="text-xl font-semibold text-fg">Norbix Admin</h1>
       <p className="mt-2 max-w-sm text-sm text-fg-muted">
         No project selected. Open this portal at your project address (for
-        example <code>pr_xxxx.admin.norbix.ai</code>) to continue.
+        example <code>pr-&lt;id&gt;.admin.norbix.ai</code>) to continue.
       </p>
     </div>
   );

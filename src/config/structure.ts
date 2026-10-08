@@ -5,6 +5,16 @@
 import { ROUTES } from '@/routes';
 import type { AdminPortalStructure } from '@/services/portalApi';
 
+/**
+ * The Privacy & data page (export / delete my data) calls /me/compliance,
+ * /me/compliance/export and /me/compliance/delete, which the gateway does not
+ * have (404). Cloud must define the privacy flows first (Project Settings →
+ * Access / legal documents, Compliance settings); the portal then renders what
+ * Cloud defines. Until then the page, its nav entry and its Home card are
+ * hidden. The public /legal/terms and /legal/privacy pages are not affected.
+ */
+export const PRIVACY_PAGE_ENABLED = false;
+
 export interface NavCard {
   to: string;
   title: string;
@@ -17,13 +27,16 @@ const MODULE_ROUTES: Record<string, { to: string; desc: string }> = {
   profile: { to: ROUTES.PROFILE, desc: 'Update your contact information.' },
   security: {
     to: ROUTES.SECURITY,
-    desc: 'Password and two-factor authentication.',
+    // Two-factor sign-in is not built yet (Membership task) — do not promise it.
+    desc: 'Password and passkeys.',
   },
   preferences: {
     to: ROUTES.PREFERENCES,
     desc: 'Choose which messages you receive.',
   },
-  legal: { to: ROUTES.PRIVACY, desc: 'Export or delete your data.' },
+  ...(PRIVACY_PAGE_ENABLED
+    ? { legal: { to: ROUTES.PRIVACY, desc: 'Export or delete your data.' } }
+    : {}),
 };
 
 // The layout the portal falls back to when structure can't be loaded — the
@@ -36,11 +49,15 @@ export const DEFAULT_NAV_CARDS: NavCard[] = [
     title: 'Preferences',
     desc: MODULE_ROUTES.preferences.desc,
   },
-  {
-    to: ROUTES.PRIVACY,
-    title: 'Privacy & data',
-    desc: MODULE_ROUTES.legal.desc,
-  },
+  ...(PRIVACY_PAGE_ENABLED
+    ? [
+        {
+          to: ROUTES.PRIVACY,
+          title: 'Privacy & data',
+          desc: 'Export or delete your data.',
+        },
+      ]
+    : []),
 ];
 
 /** Turn a structure into the nav cards the dashboard renders. */

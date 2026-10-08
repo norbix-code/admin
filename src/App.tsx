@@ -34,6 +34,7 @@ import { Preferences } from '@/features/preferences/preferences';
 import { Privacy } from '@/features/compliance/compliance';
 import { LegalDocumentPage } from '@/features/compliance/legal';
 import { Dashboard, Placeholder } from '@/features/dashboard/dashboard';
+import { PRIVACY_PAGE_ENABLED } from '@/config/structure';
 
 type BootState =
   | { status: 'loading' }
@@ -56,7 +57,7 @@ export default function App() {
     let cancelled = false;
 
     const resolve = async () => {
-      // Resolve the project: pin → pr_ subdomain → meta → custom-domain host
+      // Resolve the project: pin → pr-<hex> host label → meta → custom-domain host
       // lookup against the managed service. Async because the custom-domain
       // path calls hub.norbix.ai/admin-portal-id.
       const projectId = await resolveProjectIdAsync();
@@ -232,16 +233,19 @@ export default function App() {
               </RequireAuth>
             }
           />
-          <Route
-            path={ROUTES.PRIVACY}
-            element={
-              <RequireAuth>
-                <AppLayout>
-                  <Privacy />
-                </AppLayout>
-              </RequireAuth>
-            }
-          />
+          {/* Hidden until /me/compliance* exist (PRIVACY_PAGE_ENABLED). */}
+          {PRIVACY_PAGE_ENABLED && (
+            <Route
+              path={ROUTES.PRIVACY}
+              element={
+                <RequireAuth>
+                  <AppLayout>
+                    <Privacy />
+                  </AppLayout>
+                </RequireAuth>
+              }
+            />
+          )}
 
           <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
         </Routes>
