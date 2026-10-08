@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # One build serves every edition (managed, enterprise, community): the
       # edition is read at runtime from the Hub's /echo, not at build time.
