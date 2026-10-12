@@ -1,47 +1,50 @@
-import { useEffect, useMemo } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { AuthLayout } from '@/components/layouts';
 import { selectProjectBranding } from '@/features/project/slice';
 import { Alert, Spinner } from '@/components/ui';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { signedIn } from './slice';
 import { ROUTES } from '@/routes';
+import {
+  CALLBACK_TOKEN_NAMES,
+  readCallback,
+  removeFromAddressBar,
+} from './linkToken';
 
 /**
  * OAuth / social sign-in return handler.
  *
  * Social and passkey-recovery sign-in are full-page navigations to the API,
  * which owns the provider redirect and the token exchange. The API sends the
- * browser back here with either a bearer token or an error in the query
- * string. We read it once, store it in the auth slice (which the SDK client
- * and persist layer pick up), and bounce to the app.
+ * browser back here with either a bearer token or an error. We read it once,
+ * take the token out of the address bar at once, store it in the auth slice
+ * (which the SDK client and persist layer pick up), and bounce to the app.
  *
  * Accepted params (any of these token names): `token`, `bearerToken`,
- * `access_token`; plus optional `userId`/`user_id`; or `error`.
+ * `access_token`; plus optional `userId`/`user_id`; or `error`. Each is read
+ * from the URL fragment first (`#token=…` — never sent to a server, so never
+ * in an access log), then from the query (links and redirects that still use
+ * `?token=…`).
  */
 export function OAuthCallback() {
-  const [params] = useSearchParams();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const branding = useAppSelector(selectProjectBranding);
   const navigate = useNavigate();
 
-  // Parse the URL once (pure) — no setState needed. The token branch is the
-  // only side effect, handled in the effect below.
-  const result = useMemo<
-    { token: string; userId: string } | { error: string }
-  >(() => {
-    const token =
-      params.get('token') ??
-      params.get('bearerToken') ??
-      params.get('access_token');
-    const userId = params.get('userId') ?? params.get('user_id') ?? '';
-    const errParam = params.get('error') ?? params.get('error_description');
-    if (errParam) return { error: errParam };
-    if (token) return { token, userId };
-    return { error: 'Sign-in did not complete. No token was returned.' };
-  }, [params]);
+  // Parse the URL once, on the first render (pure: StrictMode may render
+  // twice). The address bar loses the token right after, so it is never
+  // read again. The token branch is the only side effect, handled below.
+  const [result] = useState(() => readCallback(location));
 
   const error = 'error' in result ? result.error : null;
+
+  useEffect(() => {
+    removeFromAddressBar(location, window.history, ...CALLBACK_TOKEN_NAMES);
+    // Once, on mount: the location read above is the one to clean.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if ('token' in result) {
