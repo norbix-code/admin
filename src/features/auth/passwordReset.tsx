@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Form } from 'react-final-form';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { AuthLayout } from '@/components/layouts';
 import { useAppSelector } from '@/app/hooks';
 import { selectProjectBranding } from '@/features/project/slice';
@@ -16,6 +16,7 @@ import {
   useConfirmPasswordResetMutation,
 } from '@/services/norbix';
 import { ROUTES } from '@/routes';
+import { linkParam, removeFromAddressBar } from './linkToken';
 
 export function PasswordResetRequest() {
   const [request, { isLoading, isError }] = useRequestPasswordResetMutation();
@@ -75,9 +76,23 @@ export function PasswordResetRequest() {
   );
 }
 
+/**
+ * Behind the link in the password-reset email
+ * (`/sign-in/reset/confirm#token=…`; links sent before carry `?token=…`).
+ * The one-time token is read once — fragment first, then the query — and
+ * taken out of the address bar at once (see ./linkToken). It goes to the API
+ * only in the body of the confirm POST.
+ */
 export function PasswordResetConfirm() {
-  const [params] = useSearchParams();
-  const token = params.get('token') ?? '';
+  const location = useLocation();
+  // Read once, on the first render (pure: StrictMode may render twice).
+  const [token] = useState(() => linkParam(location, 'token'));
+
+  useEffect(() => {
+    removeFromAddressBar(location, window.history, 'token');
+    // Once, on mount: the location read above is the one to clean.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [confirm, { isLoading, isSuccess, isError }] =
     useConfirmPasswordResetMutation();
   const branding = useAppSelector(selectProjectBranding);
