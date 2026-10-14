@@ -28,6 +28,7 @@ import {
   PasswordResetConfirm,
 } from '@/features/auth/passwordReset';
 import { OAuthCallback } from '@/features/auth/callback';
+import { InvitationFinish } from '@/features/auth/invitation';
 import { SecurityOverview } from '@/features/auth/security';
 import { Profile } from '@/features/profile/profile';
 import { Preferences } from '@/features/preferences/preferences';
@@ -174,6 +175,10 @@ export default function App() {
             element={<PasswordResetConfirm />}
           />
           <Route path={ROUTES.OAUTH_CALLBACK} element={<OAuthCallback />} />
+          <Route
+            path={ROUTES.INVITATION_FINISH}
+            element={<InvitationFinish />}
+          />
           <Route
             path={ROUTES.LEGAL_TERMS}
             element={<LegalDocumentPage kind="terms" />}
