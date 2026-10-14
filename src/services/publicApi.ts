@@ -30,7 +30,18 @@ const dynamicBaseQuery: BaseQueryFn<
   // Endpoints write `{projectId}` in their url; fill it in here.
   const fill = (u: string) => u.replace('{projectId}', projectId ?? '');
   const filled =
-    typeof args === 'string' ? fill(args) : { ...args, url: fill(args.url) };
+    typeof args === 'string'
+      ? fill(args)
+      : {
+          ...args,
+          url: fill(args.url),
+          body:
+            args.body &&
+            typeof args.body === 'object' &&
+            'projectId' in args.body
+              ? { ...args.body, projectId: fill(String(args.body.projectId)) }
+              : args.body,
+        };
   const rawBaseQuery = fetchBaseQuery({
     baseUrl: selectApiRoot(state),
     prepareHeaders: (headers) => {
@@ -62,7 +73,29 @@ export const publicApi = createApi({
         available: r.available ?? false,
       }),
     }),
+    // An invited user finishes registration (gateway registration-settings):
+    // POST /membership/auth/invitation/finish — anonymous, the one-time token
+    // is the proof and goes only in the body. Hand-written until the SDK
+    // ships `finishInvitation`; then move it to services/norbix.ts.
+    finishInvitation: builder.mutation<
+      { responseStatus?: { isSuccess?: boolean } },
+      FinishInvitationBody
+    >({
+      query: (body) => ({
+        url: '/membership/auth/invitation/finish',
+        method: 'POST',
+        body: { ...body, projectId: '{projectId}' },
+      }),
+    }),
   }),
 });
 
-export const { useGetLegalDocumentQuery } = publicApi;
+/** What the invited user sends; the project comes from the portal. */
+export interface FinishInvitationBody {
+  token: string;
+  password: string;
+  displayName?: string;
+}
+
+export const { useGetLegalDocumentQuery, useFinishInvitationMutation } =
+  publicApi;
