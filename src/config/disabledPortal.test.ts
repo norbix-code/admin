@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  isServedWhileDisabled,
-  norbixBranded,
-} from '@/config/disabledPortal';
+import { isServedWhileDisabled, norbixBranded } from '@/config/disabledPortal';
 import type { ProjectConfig } from '@/types/projectConfig';
 
 // Owner decision 2026-10-15 #4: a turned-off managed portal still serves the
