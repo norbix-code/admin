@@ -94,7 +94,10 @@ export const publicApi = createApi({
 export interface FinishInvitationBody {
   token: string;
   password: string;
-  displayName?: string;
+  /** Optional: replaces the full name the admin entered (owner decision 2026-10-15 #3). */
+  fullName?: string;
+  /** Optional: how e-mails greet the user; empty keeps the admin's (or the name). */
+  salutation?: string;
 }
 
 export const { useGetLegalDocumentQuery, useFinishInvitationMutation } =
