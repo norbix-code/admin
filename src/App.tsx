@@ -36,12 +36,15 @@ import { Privacy } from '@/features/compliance/compliance';
 import { LegalDocumentPage } from '@/features/compliance/legal';
 import { Dashboard, Placeholder } from '@/features/dashboard/dashboard';
 import { PRIVACY_PAGE_ENABLED } from '@/config/structure';
+import { isServedWhileDisabled, norbixBranded } from '@/config/disabledPortal';
 
 type BootState =
   | { status: 'loading' }
   | { status: 'no-project' }
   | { status: 'echo-failed' }
   | { status: 'portal-disabled' }
+  // Turned off, but an e-mail link page was opened: Norbix-branded, those pages only.
+  | { status: 'link-only'; config: ProjectConfig }
   | { status: 'ready'; config: ProjectConfig };
 
 export default function App() {
@@ -105,6 +108,14 @@ export default function App() {
       // app. `adminPortalEnabled` defaults to enabled when absent (older gateway)
       // so we never lock out before the flag ships.
       if (isManaged && config.adminPortalEnabled === false) {
+        // The e-mail links (password reset, invitation) still land here, with
+        // the Norbix look (owner decision 2026-10-15 #4, config/disabledPortal).
+        if (isServedWhileDisabled(window.location.pathname)) {
+          const norbix = norbixBranded(config);
+          dispatch(projectConfigResolved(norbix));
+          setBoot({ status: 'link-only', config: norbix });
+          return;
+        }
         setBoot({ status: 'portal-disabled' });
         return;
       }
@@ -144,14 +155,36 @@ export default function App() {
     );
   }
 
+  const portalDisabled = (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-2 px-4 text-center">
+      <p className="text-lg font-medium text-fg">Portal unavailable</p>
+      <p className="text-sm text-fg-muted">
+        This portal is currently turned off. Please contact the site owner.
+      </p>
+    </div>
+  );
+
   if (boot.status === 'portal-disabled') {
+    return portalDisabled;
+  }
+
+  if (boot.status === 'link-only') {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-2 px-4 text-center">
-        <p className="text-lg font-medium text-fg">Portal unavailable</p>
-        <p className="text-sm text-fg-muted">
-          This portal is currently turned off. Please contact the site owner.
-        </p>
-      </div>
+      <NorbixProvider key={token ?? 'anon'} client={getNorbixClient()}>
+        <BrowserRouter>
+          <Routes>
+            <Route
+              path={ROUTES.PASSWORD_RESET_CONFIRM}
+              element={<PasswordResetConfirm />}
+            />
+            <Route
+              path={ROUTES.INVITATION_FINISH}
+              element={<InvitationFinish />}
+            />
+            <Route path="*" element={portalDisabled} />
+          </Routes>
+        </BrowserRouter>
+      </NorbixProvider>
     );
   }
 

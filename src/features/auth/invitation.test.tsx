@@ -65,8 +65,39 @@ describe('InvitationFinish', () => {
     expect(replace).toHaveBeenCalledTimes(1);
     expect(replace.mock.calls[0][2]).toBe('/sign-up/invitation');
 
-    fireEvent.change(screen.getByLabelText('Your name (optional)'), {
-      target: { value: '  Ona  ' },
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'Happy-Tummy-2026!' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create my account' }));
+
+    // No names typed: nothing but the token and the password is sent, so the
+    // gateway keeps the names the admin entered.
+    await waitFor(() =>
+      expect(finish.calls).toEqual([
+        { token: 'In+v=', password: 'Happy-Tummy-2026!' },
+      ]),
+    );
+  });
+
+  // Owner decision 2026-10-15 #3: the e-mail is shown read-only (it cannot
+  // change); the user may override the full name and the salutation.
+  it('shows the e-mail read-only and sends the full name and salutation the user typed', async () => {
+    const replace = vi.spyOn(window.history, 'replaceState');
+    open('/sign-up/invitation#token=abc&email=ona%40happytummy.lt');
+
+    // Both the token and the e-mail leave the address bar.
+    expect(replace.mock.calls[0][2]).toBe('/sign-up/invitation');
+
+    const email = screen.getByLabelText('E-mail') as HTMLInputElement;
+    expect(email.value).toBe('ona@happytummy.lt');
+    expect(email.readOnly).toBe(true);
+    expect(email.disabled).toBe(true);
+
+    fireEvent.change(screen.getByLabelText('Full name (optional)'), {
+      target: { value: '  Ona   Petraitė ' },
+    });
+    fireEvent.change(screen.getByLabelText('Salutation (optional)'), {
+      target: { value: ' Ona ' },
     });
     fireEvent.change(screen.getByLabelText('Password'), {
       target: { value: 'Happy-Tummy-2026!' },
@@ -75,9 +106,23 @@ describe('InvitationFinish', () => {
 
     await waitFor(() =>
       expect(finish.calls).toEqual([
-        { token: 'In+v=', password: 'Happy-Tummy-2026!', displayName: 'Ona' },
+        {
+          token: 'abc',
+          password: 'Happy-Tummy-2026!',
+          fullName: 'Ona Petraitė',
+          salutation: 'Ona',
+        },
       ]),
     );
+  });
+
+  it('without an e-mail in the link the page still works (older links)', () => {
+    open('/sign-up/invitation#token=abc');
+
+    expect(screen.queryByLabelText('E-mail')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Create my account' }),
+    ).toBeTruthy();
   });
 
   it('a link without a token shows an error and no form', () => {
