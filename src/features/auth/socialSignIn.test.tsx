@@ -42,6 +42,18 @@ const calls = vi.hoisted(() => ({
   consumeError: undefined as unknown,
 }));
 
+// A fixed PKCE pair, so the URL and the calls can be compared exactly
+// (pkce.test.ts checks the real pair).
+const VERIFIER = 'v'.repeat(43);
+const CHALLENGE = 'c'.repeat(43);
+vi.mock('@norbix.ai/ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@norbix.ai/ts')>()),
+  createPkcePair: async () => ({
+    codeVerifier: 'v'.repeat(43),
+    codeChallenge: 'c'.repeat(43),
+  }),
+}));
+
 // Only the call is replaced; the messages are the real ones.
 vi.mock('./recovery', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./recovery')>()),
@@ -168,31 +180,53 @@ afterEach(() => {
   calls.consume = [];
   calls.consumeAnswer = 'recovery.jwt';
   calls.consumeError = undefined;
+  window.sessionStorage.clear();
   window.history.replaceState(null, '', '/');
 });
+
+const SIGN_IN_KEY = 'norbix:pkce:signIn:google';
+const LINK_KEY = 'norbix:pkce:link:google';
 
 const refused = (errorCode: string, status = 400) =>
   Object.assign(new Error(errorCode), { status, code: errorCode });
 
 describe('Sign-in page — social buttons', () => {
-  it('one button per auth.socialSignIn entry, each to the API host with the return page', () => {
+  it('one button per auth.socialSignIn entry; a click goes to the API host with the return page and a PKCE challenge', async () => {
     renderAt(ROUTES.SIGN_IN);
-    const google = screen.getByRole('link', { name: 'Continue with Google' });
-    const github = screen.getByRole('link', { name: 'Continue with GitHub' });
-    expect(google.getAttribute('href')).toBe(
-      'https://api.norbix.test/v3/membership/auth/social/google?projectId=pr_1' +
-        `&returnUrl=${encodeURIComponent(`${PORTAL}/oauth/callback?via=google`)}`,
-    );
-    expect(github.getAttribute('href')).toBe(
-      'https://api.norbix.test/v3/membership/auth/social/github?projectId=pr_1&env=TEST' +
-        `&returnUrl=${encodeURIComponent(`${PORTAL}/oauth/callback?via=github`)}`,
-    );
+    expect(
+      screen.getByRole('button', { name: 'Continue with GitHub' }),
+    ).toBeTruthy();
     expect(screen.getByText('or continue with')).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Continue with Google' }),
+    );
+    await waitFor(() => expect(calls.goTo).toHaveLength(1));
+    expect(calls.goTo[0]).toBe(
+      'https://api.norbix.test/v3/membership/auth/social/google?projectId=pr_1' +
+        `&returnUrl=${encodeURIComponent(`${PORTAL}/oauth/callback?via=google`)}` +
+        `&codeChallenge=${CHALLENGE}`,
+    );
+    // The verifier stays in this tab for the exchange.
+    expect(window.sessionStorage.getItem(SIGN_IN_KEY)).toBe(VERIFIER);
+  });
+
+  it('the env from startPath is kept', async () => {
+    renderAt(ROUTES.SIGN_IN);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Continue with GitHub' }),
+    );
+    await waitFor(() => expect(calls.goTo).toHaveLength(1));
+    expect(calls.goTo[0]).toBe(
+      'https://api.norbix.test/v3/membership/auth/social/github?projectId=pr_1&env=TEST' +
+        `&returnUrl=${encodeURIComponent(`${PORTAL}/oauth/callback?via=github`)}` +
+        `&codeChallenge=${CHALLENGE}`,
+    );
   });
 
   it('an empty list shows no button and no "or continue with"', () => {
     renderAt(ROUTES.SIGN_IN, { config: CONFIG([]) });
-    expect(screen.queryByRole('link', { name: /Continue with/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Continue with/ })).toBeNull();
     expect(screen.queryByText('or continue with')).toBeNull();
   });
 
@@ -200,24 +234,26 @@ describe('Sign-in page — social buttons', () => {
     const old = CONFIG();
     delete (old.auth as { socialSignIn?: unknown }).socialSignIn;
     renderAt(ROUTES.SIGN_IN, { config: old });
-    expect(screen.queryByRole('link', { name: /Continue with/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Continue with/ })).toBeNull();
   });
 
   it('without the API host from echo there is nowhere to send the browser: no button', () => {
     renderAt(ROUTES.SIGN_IN, { echo: null });
-    expect(screen.queryByRole('link', { name: /Continue with/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Continue with/ })).toBeNull();
   });
 });
 
 describe('/oauth/callback', () => {
-  it('a sign-in code: exchanged, stored like a password sign-in, home; the code leaves the address bar', async () => {
+  it('a sign-in code: exchanged with the verifier, stored like a password sign-in, home; the code leaves the address bar', async () => {
     calls.exchangeAnswer = { bearerToken: 'social.jwt', userId: 'usr_9' };
+    window.sessionStorage.setItem(SIGN_IN_KEY, VERIFIER);
     const store = renderAt(
       '/oauth/callback?via=google&code=c1&provider=google',
     );
 
     expect(await screen.findByText('Home screen')).toBeTruthy();
-    expect(calls.exchange).toEqual([['google', 'c1']]);
+    expect(calls.exchange).toEqual([['google', 'c1', VERIFIER]]);
+    expect(window.sessionStorage.getItem(SIGN_IN_KEY)).toBeNull();
     expect(store.getState().auth.token).toBe('social.jwt');
     expect(store.getState().auth.userId).toBe('usr_9');
     expect(store.getState().auth.loginName).toBeNull();
@@ -239,14 +275,57 @@ describe('/oauth/callback', () => {
     expect(store.getState().auth.token).toBeNull();
   });
 
-  it('a link code, signed in: finished as this user, back to Security with "Linked Google."', async () => {
+  it('no verifier kept (another tab or browser): sent without one, and 058 is worded plainly', async () => {
+    calls.exchangeError = refused('CM-ERRORS-MEMBERSHIP-058');
+    const store = renderAt(
+      '/oauth/callback?via=google&code=c1&provider=google',
+    );
+
+    expect(
+      await screen.findByText(
+        'This sign-in link was started in another browser or tab. Please start again.',
+      ),
+    ).toBeTruthy();
+    expect(calls.exchange).toEqual([['google', 'c1', undefined]]);
+    expect(store.getState().auth.token).toBeNull();
+  });
+
+  it('a refused exchange still drops the verifier', async () => {
+    window.sessionStorage.setItem(SIGN_IN_KEY, VERIFIER);
+    calls.exchangeError = refused('CM-ERRORS-MEMBERSHIP-051');
+    renderAt('/oauth/callback?via=google&code=c1&provider=google');
+    await screen.findByText(
+      'This sign-in has expired or was already used. Please start again.',
+    );
+    expect(window.sessionStorage.getItem(SIGN_IN_KEY)).toBeNull();
+  });
+
+  it('an error answer drops the verifier of that start', async () => {
+    window.sessionStorage.setItem(SIGN_IN_KEY, VERIFIER);
+    renderAt('/oauth/callback?via=google&error=access_denied');
+    await screen.findByText('Sign-in with Google was cancelled.');
+    expect(window.sessionStorage.getItem(SIGN_IN_KEY)).toBeNull();
+  });
+
+  it('return_url_not_allowed: asks the owner to add the address to Allowed origins', async () => {
+    renderAt('/oauth/callback?via=google&error=return_url_not_allowed');
+    expect(
+      await screen.findByText(
+        "This portal's address is not allowed for sign-in. Ask the project owner to add it to Allowed origins.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it('a link code, signed in: finished as this user with the verifier, back to Security with "Linked Google."', async () => {
+    window.sessionStorage.setItem(LINK_KEY, VERIFIER);
     const store = renderAt(
       '/oauth/callback?via=google&link=1&intent=link&code=l1&provider=google',
       { signedIn: true },
     );
 
     expect(await screen.findByText('Linked Google.')).toBeTruthy();
-    expect(calls.finish).toEqual([['usr_1', 'l1']]);
+    expect(calls.finish).toEqual([['usr_1', 'l1', VERIFIER]]);
+    expect(window.sessionStorage.getItem(LINK_KEY)).toBeNull();
     expect(calls.exchange).toEqual([]);
     expect(store.getState().auth.token).toBe('old.token');
   });
@@ -391,8 +470,14 @@ describe('Security → Sign-in methods', () => {
       ]),
     );
     expect(calls.start).toEqual([
-      ['usr_1', 'google', `${PORTAL}/oauth/callback?via=google&link=1`],
+      [
+        'usr_1',
+        'google',
+        `${PORTAL}/oauth/callback?via=google&link=1`,
+        CHALLENGE,
+      ],
     ]);
+    expect(window.sessionStorage.getItem(LINK_KEY)).toBe(VERIFIER);
   });
 
   it('a refused start is worded plainly and the browser stays', async () => {
@@ -406,6 +491,8 @@ describe('Security → Sign-in methods', () => {
       ),
     ).toBeTruthy();
     expect(calls.goTo).toEqual([]);
+    // The start failed: its verifier is dropped.
+    expect(window.sessionStorage.getItem('norbix:pkce:link:github')).toBeNull();
     expect(
       (screen.getByRole('button', { name: 'Link GitHub' }) as HTMLButtonElement)
         .disabled,

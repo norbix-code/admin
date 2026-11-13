@@ -15,11 +15,15 @@
 //                     config; {"linkConflict":true} answers the link finish
 //                     with 409 CM-ERRORS-MEMBERSHIP-055
 //   GET  /__provider?next=… → the "provider": sends the browser on to `next`
+//   PKCE (gateway step 16): a code whose start carried `codeChallenge` is
+//        exchanged / finished only with the matching `codeVerifier`, else
+//        CM-ERRORS-MEMBERSHIP-058; a code started without one needs none
 //   POST /v3/membership/userauth/recovery/magic-link/consume → token
 //        "e2e-recovery-token" answers a recovery session once; anything else
 //        (or a second use) is CM-ERRORS-PASSKEY-016
 
 import { createServer } from 'node:http';
+import { createHash } from 'node:crypto';
 
 const PORT = Number(process.env.FAKE_API_PORT ?? 3198);
 const PROJECT = 'pr_e2e';
@@ -57,6 +61,9 @@ const reset = (opts = {}) => {
     socialExchanges: [],
     linkStarts: [],
     linkFinishes: [],
+    // The challenge of the last sign-in start and link start (PKCE).
+    signInChallenge: null,
+    linkChallenge: null,
     // Passkey recovery link redemptions (social sign-in spec).
     recoveryConsumes: [],
     sessions: [],
@@ -79,6 +86,16 @@ const refuse = (res, message, errorCode = 'CM-ERRORS-AI-CHAT-009') =>
   json(res, 400, {
     responseStatus: { isSuccess: false, errors: [{ message, errorCode }] },
   });
+
+// PKCE S256 as the gateway checks it: a challenge needs the verifier whose
+// base64url(SHA-256) it is; a verifier with no challenge is refused too.
+const pkceMatches = (challenge, verifier) => {
+  if (!challenge) return !verifier;
+  if (!verifier) return false;
+  return (
+    createHash('sha256').update(verifier).digest('base64url') === challenge
+  );
+};
 
 const readBody = (req) =>
   new Promise((resolve) => {
@@ -413,10 +430,12 @@ const server = createServer(async (req, res) => {
   const socialStart = /^\/v3\/membership\/auth\/social\/([a-z]+)$/.exec(path);
   if (socialStart && req.method === 'GET') {
     const returnUrl = url.searchParams.get('returnUrl') ?? '';
+    state.signInChallenge = url.searchParams.get('codeChallenge');
     state.socialStarts.push({
       provider: socialStart[1],
       projectId: url.searchParams.get('projectId'),
       returnUrl,
+      codeChallenge: state.signInChallenge,
     });
     const back = new URL(returnUrl);
     back.searchParams.set('code', 'e2e-social-code');
@@ -439,11 +458,15 @@ const server = createServer(async (req, res) => {
     state.socialExchanges.push({
       provider: exchange[1],
       code: body.code,
+      codeVerifier: body.codeVerifier ?? null,
       authorization: auth ?? null,
       project: req.headers['norbix-project-id'] ?? null,
     });
     if (body.code !== 'e2e-social-code') {
       return refuse(res, 'expired', 'CM-ERRORS-MEMBERSHIP-051');
+    }
+    if (!pkceMatches(state.signInChallenge, body.codeVerifier)) {
+      return refuse(res, 'verifier mismatch', 'CM-ERRORS-MEMBERSHIP-058');
     }
     return json(res, 200, {
       bearerToken: TOKEN,
@@ -456,6 +479,7 @@ const server = createServer(async (req, res) => {
     /^\/v3\/membership\/auth\/([^/]+)\/link-identity\/start$/.exec(path);
   if (linkStart && req.method === 'POST') {
     const body = await readBody(req);
+    state.linkChallenge = body.codeChallenge ?? null;
     state.linkStarts.push({
       userId: linkStart[1],
       ...body,
@@ -479,6 +503,9 @@ const server = createServer(async (req, res) => {
       ...body,
       authorization: auth ?? null,
     });
+    if (!pkceMatches(state.linkChallenge, body.codeVerifier)) {
+      return refuse(res, 'verifier mismatch', 'CM-ERRORS-MEMBERSHIP-058');
+    }
     if (state.linkConflict) {
       return json(res, 409, {
         responseStatus: {

@@ -19,6 +19,7 @@ import {
   socialReturnUrl,
 } from './social';
 import { goTo, startLinkIdentity } from './socialApi';
+import { beginPkce, clearPkceVerifier } from './pkce';
 import type { LinkResultState } from './callback';
 
 /**
@@ -175,13 +176,17 @@ function SignInMethodsCard() {
     setError(null);
     setBusy(provider);
     try {
+      // PKCE: the verifier stays in this tab for the finish (callback.tsx).
+      const codeChallenge = await beginPkce('link', provider);
       const { authorizeUrl } = await startLinkIdentity(
         userId,
         provider,
         socialReturnUrl(window.location.origin, provider, true),
+        codeChallenge ?? undefined,
       );
       goTo(authorizeUrl);
     } catch (err) {
+      clearPkceVerifier('link', provider);
       setError(socialErrorMessage(err, provider, buttons));
       setBusy(null);
     }

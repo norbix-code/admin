@@ -14,6 +14,8 @@ import { useGetLegalDocumentQuery } from '@/services/publicApi';
 import { ROUTES } from '@/routes';
 import type { ProjectConfig, AuthMethod } from '@/types/projectConfig';
 import { selectEcho } from '@/config/slice';
+import { beginPkce } from './pkce';
+import { goTo } from './socialApi';
 import {
   passwordChangeRequiredOf,
   type PasswordChangeState,
@@ -106,13 +108,22 @@ export function Login({ config }: { config: ProjectConfig }) {
 
   // Social sign-in is a full-page navigation to the API host, which owns the
   // provider redirect and the secrets; it comes back to /oauth/callback with
-  // a one-time code (callback.tsx).
-  const socialHref = (provider: string, startPath: string) =>
-    socialStartUrl(
-      apiRoot ?? '',
-      startPath,
-      socialReturnUrl(window.location.origin, provider),
+  // a one-time code (callback.tsx). Each start makes a PKCE pair first: the
+  // verifier stays in this tab, the challenge goes in the URL.
+  // Not disabled while starting: a page restored from the back-forward
+  // cache must not come back with dead buttons. A second click makes a new
+  // pair, and the last navigation wins with the last verifier.
+  const startSocial = async (provider: string, startPath: string) => {
+    const codeChallenge = await beginPkce('signIn', provider);
+    goTo(
+      socialStartUrl(
+        apiRoot ?? '',
+        startPath,
+        socialReturnUrl(window.location.origin, provider),
+        codeChallenge,
+      ),
     );
+  };
 
   return (
     <AuthLayout
@@ -167,13 +178,15 @@ export function Login({ config }: { config: ProjectConfig }) {
           <div className="flex flex-col gap-2">
             {showPasskey && <PasskeySignInButton />}
             {social.map((b) => (
-              <a
+              <Button
                 key={b.provider}
-                href={socialHref(b.provider, b.startPath)}
-                className="inline-flex w-full items-center justify-center rounded-token bg-surface px-4 py-2 text-sm font-medium text-fg ring-1 ring-inset ring-border-token transition hover:bg-app"
+                type="button"
+                variant="secondary"
+                block
+                onClick={() => void startSocial(b.provider, b.startPath)}
               >
                 Continue with {b.displayName}
-              </a>
+              </Button>
             ))}
           </div>
         </div>

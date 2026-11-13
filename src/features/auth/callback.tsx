@@ -19,6 +19,7 @@ import {
   type SocialCallback,
 } from './social';
 import { exchangeSocialCode, finishLinkIdentity } from './socialApi';
+import { clearPkceVerifier, takePkceVerifier } from './pkce';
 import {
   consumeRecoveryLink,
   recoveryErrorMessage,
@@ -40,7 +41,8 @@ export interface LinkResultState {
  * `provider` (plus `intent=link` for a link), or with `error=<reason>`. No
  * token is ever in the URL. The page reads the address once, takes the code
  * out of the address bar at once, then:
- *  - a sign-in code is exchanged (no credentials) for the bearer JWT, stored
+ *  - a sign-in code is exchanged (no credentials, with this tab's PKCE
+ *    verifier, pkce.ts) for the bearer JWT, stored
  *    like a password sign-in's, and the user goes home;
  *  - a link code is finished as the signed-in user, who goes back to
  *    Security with "Linked …" or the reason it failed;
@@ -78,8 +80,20 @@ export function OAuthCallback() {
     if (started.current) return;
     started.current = true;
 
+    // PKCE: this tab's verifier for the start is read once and dropped,
+    // whatever happens next (sent, refused, or not needed). Without one the
+    // call goes without it; the gateway then answers 058 if the start had a
+    // challenge.
+    const codeVerifier =
+      answer.kind === 'signIn' || answer.kind === 'link'
+        ? takePkceVerifier(answer.kind, answer.provider)
+        : undefined;
+    if (answer.kind === 'error' && answer.provider) {
+      clearPkceVerifier(answer.link ? 'link' : 'signIn', answer.provider);
+    }
+
     if (answer.kind === 'signIn') {
-      exchangeSocialCode(answer.provider, answer.code).then(
+      exchangeSocialCode(answer.provider, answer.code, codeVerifier).then(
         (res) => {
           // Navigate first: the provider re-mounts the routes on a new
           // token, and a re-mounted page must not find the code again.
@@ -96,7 +110,7 @@ export function OAuthCallback() {
     if (answer.kind === 'link' && userId) {
       const back = (state: LinkResultState) =>
         navigate(ROUTES.SECURITY, { replace: true, state });
-      finishLinkIdentity(userId, answer.code).then(
+      finishLinkIdentity(userId, answer.code, codeVerifier).then(
         () => back({ linked: answer.provider }),
         (err) =>
           back({

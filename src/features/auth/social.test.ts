@@ -91,6 +91,11 @@ describe('the start URL', () => {
       'https://api.test/v3/membership/auth/social/github?projectId=pr_1&env=TEST' +
         '&returnUrl=https%3A%2F%2Fportal.test%2Foauth%2Fcallback%3Fvia%3Dgithub',
     );
+    expect(
+      socialStartUrl('https://api.test', '/v3/start', 'https://p', 'C-_1'),
+    ).toBe(
+      'https://api.test/v3/start?returnUrl=https%3A%2F%2Fp&codeChallenge=C-_1',
+    );
     expect(socialStartUrl('https://api.test', '/v3/start', 'https://p')).toBe(
       'https://api.test/v3/start?returnUrl=https%3A%2F%2Fp',
     );
@@ -198,6 +203,10 @@ describe('messages', () => {
   it.each([
     ['access_denied', 'Sign-in with GitHub was cancelled.'],
     [
+      'return_url_not_allowed',
+      "This portal's address is not allowed for sign-in. Ask the project owner to add it to Allowed origins.",
+    ],
+    [
       'user_blocked',
       'This account cannot sign in. Please contact the site owner.',
     ],
@@ -253,6 +262,14 @@ describe('messages', () => {
     [
       'CM-ERRORS-MEMBERSHIP-057',
       'This sign-in was started in another browser or has expired. Please start again.',
+    ],
+    [
+      'CM-ERRORS-MEMBERSHIP-058',
+      'This sign-in link was started in another browser or tab. Please start again.',
+    ],
+    [
+      'CM-ERRORS-MEMBERSHIP-059',
+      'Could not start with Google. Please try again.',
     ],
   ])('code %s', (code, message) => {
     expect(socialErrorMessage(failed(code), 'google')).toBe(message);

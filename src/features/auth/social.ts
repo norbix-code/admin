@@ -113,14 +113,22 @@ export function socialReturnUrl(
   return `${portalOrigin}${ROUTES.OAUTH_CALLBACK}?${query.toString()}`;
 }
 
-/** Where a sign-in button goes: `{API host}{startPath}&returnUrl=…`. */
+/**
+ * Where a sign-in button goes:
+ * `{API host}{startPath}&returnUrl=…[&codeChallenge=…]` (the PKCE S256
+ * challenge, pkce.ts; left out when none could be made).
+ */
 export function socialStartUrl(
   apiRoot: string,
   startPath: string,
   returnUrl: string,
+  codeChallenge?: string | null,
 ): string {
   const join = startPath.includes('?') ? '&' : '?';
-  return `${apiRoot}${startPath}${join}returnUrl=${encodeURIComponent(returnUrl)}`;
+  const challenge = codeChallenge
+    ? `&codeChallenge=${encodeURIComponent(codeChallenge)}`
+    : '';
+  return `${apiRoot}${startPath}${join}returnUrl=${encodeURIComponent(returnUrl)}${challenge}`;
 }
 
 /** What /oauth/callback was opened with. */
@@ -196,6 +204,8 @@ export function callbackErrorMessage(
       return `This email already has an account. Sign in, then link ${name} from Security.`;
     case 'state_mismatch':
       return 'This sign-in was started in another browser or has expired. Please start again.';
+    case 'return_url_not_allowed':
+      return "This portal's address is not allowed for sign-in. Ask the project owner to add it to Allowed origins.";
     case 'access_denied':
       return `Sign-in with ${name} was cancelled.`;
     case 'user_blocked':
@@ -283,6 +293,13 @@ export function socialErrorMessage(
       return 'You can link an account only to yourself. Please sign in again and retry.';
     case 'CM-ERRORS-MEMBERSHIP-057':
       return 'This sign-in was started in another browser or has expired. Please start again.';
+    case 'CM-ERRORS-MEMBERSHIP-058':
+      // PKCE: no verifier, a wrong one, or a code started without a
+      // challenge. The code is used up either way.
+      return 'This sign-in link was started in another browser or tab. Please start again.';
+    case 'CM-ERRORS-MEMBERSHIP-059':
+      // The start's challenge was refused: nothing the user can fix.
+      return `Could not start with ${name}. Please try again.`;
     default:
       return `Could not finish with ${name}. Please try again.`;
   }

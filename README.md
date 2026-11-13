@@ -95,38 +95,54 @@ env: `provider`, `displayName`, `startPath`). No entries, no buttons.
    proxy would put the cookie on the portal host and end in `state_mismatch`.
    `startPath` already carries the project and the env (the portal's SDK
    client knows neither the API host nor the env, so the SDK's
-   `socialSignInUrl` is not used for this one URL).
+   `socialSignInUrl` is not used for this one URL). The portal adds
+   `&codeChallenge=…` (PKCE, below).
 2. **Return.** The gateway sends the browser to `/oauth/callback` with a
    one-time `code` and `provider` (plus `intent=link` for a link), or with
    `error=<reason>`. No token is ever in the URL. The page takes the code
    out of the address bar, exchanges it through the proxy with no
-   credentials (`api.auth.exchangeSocialCode`, 2 minutes, once) and stores
-   the bearer JWT exactly like a password sign-in.
+   credentials and with the PKCE verifier (`api.auth.exchangeSocialCode`,
+   2 minutes, once) and stores the bearer JWT exactly like a password
+   sign-in.
 3. **Link (Security → Sign-in methods).** "Link {provider}" calls
-   `api.membership.startLinkIdentity` as the signed-in user and sends the
+   `api.membership.startLinkIdentity` (with a PKCE challenge) as the
+   signed-in user and sends the
    browser to the `authorizeUrl` it answers. The return page finishes the
-   link (`finishLinkIdentity`) and goes back to Security with "Linked …", or
+   link (`finishLinkIdentity`, with the verifier) and goes back to Security with "Linked …", or
    "This {provider} account belongs to someone else." (409,
    CM-ERRORS-MEMBERSHIP-055). The page does not list the accounts already
    linked: the API host has no read of a user's other logins.
 
+**PKCE.** Every sign-in start and link start makes a fresh verifier
+(`createPkcePair`, 32 random bytes) and sends its S256 challenge; the
+exchange and the link finish send the verifier. The verifier is kept in
+`sessionStorage` (this tab only) under `norbix:pkce:<signIn|link>:<provider>`
+and is removed when it is read, used or not, and when a start fails. The
+gateway binds the one-time code to the challenge, so a code URL opened in
+another browser or tab is refused (CM-ERRORS-MEMBERSHIP-058: "This sign-in
+link was started in another browser or tab. Please start again."); a failed
+check uses the code up. Without `sessionStorage` the start goes without a
+challenge, which the gateway still accepts.
+
 **The portal's origin must be allowed.** The gateway accepts `returnUrl` only
 when it is absolute https (plain http only for `localhost`) and its origin is
-in the project's CORS union: the saved Allowed Origins (Cloud → Project →
-Settings → Access) plus the origin of every environment admin URL. The hosted
-`pr-<hex>.admin.<domain>` host is **not** added by itself; save it (or a
-custom domain) as an Allowed Origin or set it as the environment's admin URL.
-For local development save `http://localhost:3100`. A refused start
-(CM-ERRORS-MEMBERSHIP-052, also 049 / 050 / 053) is a JSON answer on the API
-host's page: the browser never comes back to the portal, so the portal cannot
-word it.
+the project's own hosted portal (`pr-<hex>.admin.<domain>`, allowed by the
+gateway itself when the installation hosts the Admin Portal) or is in the
+project's CORS union: the saved Allowed Origins (Cloud → Project → Settings →
+Access) plus the origin of every environment admin URL. **A custom domain and
+local development (`http://localhost:3100`) still have to be saved as Allowed
+Origins** (or set as the environment's admin URL). A refused sign-in start
+comes back to the mode's failure page with `error=return_url_not_allowed`
+("This portal's address is not allowed for sign-in. Ask the project owner to
+add it to Allowed origins."); with no failure page, and for the other start
+refusals (049 / 050 / 053 / 059), it is a JSON answer on the API host's page.
 
 **At the provider**, register the callback
-`{API host}/v3/membership/auth/social/{provider}/callback/{projectId}` with
-the same host `/echo` reports. The gateway builds it from the host the request
-reached: for sign-in that is the API host itself; for a link start (sent
-through the proxy) it is the proxy's `API_BASE_URL`, which must therefore be
-the same public API host, not an internal address.
+`{API host}/v3/membership/auth/social/{provider}/callback/{projectId}`, where
+the API host is the one `/echo` reports. The gateway builds the provider's
+`redirect_uri` from that public address for the sign-in start and the link
+start (sent through the proxy) alike; a start opened on another host name
+hops once to it.
 
 ### Passkey recovery link
 
