@@ -12,8 +12,8 @@
 // (Cloud → Membership → Access): brand (default ON) and the sensitive auth
 // detail — methods + passwordPolicy (default OFF). Social providers + passkey
 // yes/no are always safe to return. When auth detail is not exposed, the
-// portal uses the defaults below (email + minLength-3 policy), which match the
-// Hub PasswordComplexity default.
+// portal uses the defaults below (email + minLength-6 policy), which match the
+// Membership default password rule (at least 6 characters, nothing else).
 //
 // Brand mapping (conservative): the Hub MainColor becomes the primary accent;
 // AccentColor a secondary; everything else stays neutral grey/white.
@@ -36,9 +36,9 @@ import { setProjectHeaders } from './project';
 // brand is available and as the base that Hub brand overrides.
 //
 // The auth defaults are what the portal shows when a project does NOT expose
-// its auth settings: email login + a default password policy of minLength 3
-// (matching the Hub PasswordComplexity default), no socials, no passkey.
-const DEFAULT_PASSWORD_POLICY = { minLength: 3 };
+// its auth settings: email login + a default password policy of minLength 6
+// (matching the Membership default rule), no socials, no passkey.
+export const DEFAULT_PASSWORD_POLICY = { minLength: 6 };
 
 /** Placeholder `displayName` used until (or unless) a project name resolves. */
 export const PLACEHOLDER_DISPLAY_NAME = 'Sign in';

@@ -81,7 +81,7 @@ gated by two project opt-in flags — full design in
 
 ```
 1. fresh localStorage cache?            → use it
-2. neutral defaults (email login, minLength-3 policy, no socials/passkey)
+2. neutral defaults (email login, minLength-6 policy, no socials/passkey)
      ← merge bundled static config (if config/projects/{id}.json exists)
      ← merge public /config response (brand + safe auth; sensitive auth if opted-in)
    (each layer overrides only the fields it sets)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toAiChat } from './projectConfig';
+import { DEFAULT_PASSWORD_POLICY, toAiChat } from './projectConfig';
 
 describe('toAiChat (public config `aiChat`)', () => {
   it('keeps the assistants of an enabled chat (id, name, welcome)', () => {
@@ -34,5 +34,11 @@ describe('toAiChat (public config `aiChat`)', () => {
       enabled: true,
       assistants: [{ id: 'a', name: 'Assistant', welcome: undefined }],
     });
+  });
+});
+
+describe('default password policy (project does not expose its auth detail)', () => {
+  it('is the Membership default rule: at least 6 characters, nothing else', () => {
+    expect(DEFAULT_PASSWORD_POLICY).toEqual({ minLength: 6 });
   });
 });

@@ -9,8 +9,8 @@
 //                                  passwordPolicy) present
 // Social providers list + passkey yes/no are ALWAYS returned (low-risk, needed
 // to render the login screen). When auth detail is not exposed, the portal
-// uses defaults: email/password + the default password policy (minLength 3,
-// matching the Hub PasswordComplexity default).
+// uses defaults: email/password + the default password policy (minLength 6,
+// matching the Membership default rule).
 
 export type SocialProviderId =
   | 'google'
