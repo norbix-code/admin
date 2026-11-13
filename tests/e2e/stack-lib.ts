@@ -52,19 +52,20 @@ export const endUser = {
   lastName: 'Lovelace',
 };
 
-type Json = Record<string, unknown>;
-type Reply = { status: number; json: Json };
+export type Json = Record<string, unknown>;
+export type Reply = { status: number; json: Json };
+export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
-const projectHeaders = (projectId: string) => ({
+export const projectHeaders = (projectId: string) => ({
   'nb-project-id': projectId,
   'norbix-project-id': projectId,
   'x-cm-projectid': projectId,
 });
 
 /** One HTTP call; the body is parsed as JSON when it is JSON. */
-async function call(
+export async function call(
   ctx: APIRequestContext,
-  method: 'GET' | 'POST' | 'PUT',
+  method: Method,
   url: string,
   data?: unknown,
   headers?: Record<string, string>,
@@ -84,20 +85,20 @@ async function call(
   return { status: res.status(), json };
 }
 
-const errorsOf = (r: Reply): string =>
+export const errorsOf = (r: Reply): string =>
   JSON.stringify((r.json.responseStatus as Json | undefined) ?? r.json).slice(0, 600);
 
 /** The gateway answers a refused command with HTTP 200 and isSuccess: false. */
-const succeeded = (r: Reply): boolean =>
+export const succeeded = (r: Reply): boolean =>
   r.status >= 200 && r.status < 300 && (r.json.responseStatus as Json | undefined)?.isSuccess !== false;
 
-function must(r: Reply, what: string): Json {
+export function must(r: Reply, what: string): Json {
   if (!succeeded(r)) throw new Error(`${what} failed: HTTP ${r.status} ${errorsOf(r)}`);
   return r.json;
 }
 
 /** Repeat `probe` until it returns a value (read models fill through projections). */
-async function until<T>(what: string, probe: () => Promise<T | null | undefined | false>, timeoutMs = 45_000): Promise<T> {
+export async function until<T>(what: string, probe: () => Promise<T | null | undefined | false>, timeoutMs = 45_000): Promise<T> {
   const deadline = Date.now() + timeoutMs;
   let last: unknown;
   while (Date.now() < deadline) {
@@ -134,9 +135,9 @@ export interface Developer {
   ctx: APIRequestContext;
   projectId: string;
   /** Hub call as the developer, project in the body / query (CodeMashRequestBase.ProjectId). */
-  hub: (method: 'GET' | 'POST' | 'PUT', path: string, data?: Json) => Promise<Reply>;
+  hub: (method: Method, path: string, data?: Json) => Promise<Reply>;
   /** Api-host call as the developer, project in the headers (the Api host's global filter). */
-  api: (method: 'GET' | 'POST' | 'PUT', path: string, data?: Json) => Promise<Reply>;
+  api: (method: Method, path: string, data?: Json) => Promise<Reply>;
 }
 
 /** Sign the stack's developer account in on the Hub (cookie + bearer). */
@@ -163,7 +164,7 @@ export async function signInDeveloper(): Promise<Developer> {
       call(
         ctx,
         method,
-        method === 'GET' ? `${env.hub}${path}${path.includes('?') ? '&' : '?'}projectId=${projectId}` : `${env.hub}${path}`,
+        method === 'GET' || method === 'DELETE' ? `${env.hub}${path}${path.includes('?') ? '&' : '?'}projectId=${projectId}` : `${env.hub}${path}`,
         data === undefined ? undefined : { projectId, ...data },
         projectHeaders(projectId),
       ),
@@ -180,7 +181,7 @@ export interface Prepared {
 }
 
 /** The project read model as the developer sees it. */
-async function project(dev: Developer): Promise<Json> {
+export async function project(dev: Developer): Promise<Json> {
   return (must(await dev.hub('GET', `/account/projects/${dev.projectId}`), 'GET project').item as Json) ?? {};
 }
 
@@ -256,7 +257,7 @@ export async function setAiChat(dev: Developer, enabled: boolean, llmIntegration
 }
 
 /** 4. A service-login user holding the Admin Portal Manager role, assigned as the portal's service user. */
-async function ensureServiceUser(dev: Developer): Promise<string> {
+export async function ensureServiceUser(dev: Developer): Promise<string> {
   const assigned = (await project(dev)).adminPortalServiceUserId;
   if (assigned) return String(assigned);
   const roles = rows((await dev.hub('GET', '/membership/roles')).json);
@@ -282,7 +283,7 @@ async function ensureServiceUser(dev: Developer): Promise<string> {
 }
 
 /** 5. The managed portal on. */
-async function ensurePortalEnabled(dev: Developer): Promise<void> {
+export async function ensurePortalEnabled(dev: Developer): Promise<void> {
   if ((await project(dev)).adminPortalEnabled === true) return;
   must(await dev.hub('PUT', `/account/projects/${dev.projectId}/admin-portal/enabled`, { enabled: true }), 'SetAdminPortalEnabled');
   await until('adminPortalEnabled on the project', async () => (await project(dev)).adminPortalEnabled === true);
