@@ -30,6 +30,7 @@ import {
 import { OAuthCallback } from '@/features/auth/callback';
 import { InvitationFinish } from '@/features/auth/invitation';
 import { SecurityOverview } from '@/features/auth/security';
+import { PasswordChangeRequired } from '@/features/auth/passwordChangeRequired';
 import { Profile } from '@/features/profile/profile';
 import { Preferences } from '@/features/preferences/preferences';
 import { Privacy } from '@/features/compliance/compliance';
@@ -248,6 +249,14 @@ export default function App() {
                 <AppLayout>
                   <Profile />
                 </AppLayout>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path={ROUTES.SECURITY_PASSWORD}
+            element={
+              <RequireAuth>
+                <PasswordChangeRequired config={config} />
               </RequireAuth>
             }
           />

@@ -1,10 +1,20 @@
 import { Form } from 'react-final-form';
 import type { FormApi } from 'final-form';
+import { useLocation } from 'react-router-dom';
 import { PageHeader, Card, Button, Alert, Spinner } from '@/components/ui';
 import { TextInputField } from '@/components/forms/fields';
 import { requiredValidator } from '@/components/forms/validators';
 import { useChangePasswordMutation } from '@/services/norbix';
+import { useAppSelector } from '@/app/hooks';
+import { ROUTES } from '@/routes';
 import { PasskeysCard } from './passkeys';
+import { selectLoginName } from './slice';
+import { useSignInAgain } from './signInAgain';
+
+/** Router state the Security page reads after the re-sign-in that follows a change. */
+interface SecurityState {
+  passwordChanged?: boolean;
+}
 
 export function SecurityOverview() {
   return (
@@ -27,8 +37,14 @@ interface ChangePasswordValues {
 }
 
 function ChangePasswordCard() {
-  const [change, { isLoading, isSuccess, isError }] =
-    useChangePasswordMutation();
+  const [change, { isLoading, isError }] = useChangePasswordMutation();
+  const loginName = useAppSelector(selectLoginName);
+  const signInAgain = useSignInAgain();
+  // The page re-mounts on the new token; the success note travels in the
+  // router state of the history entry.
+  const changed = Boolean(
+    (useLocation().state as SecurityState | null)?.passwordChanged,
+  );
 
   const onSubmit = async (
     values: ChangePasswordValues,
@@ -39,17 +55,24 @@ function ChangePasswordCard() {
         currentPassword: values.currentPassword,
         newPassword: values.newPassword,
       }).unwrap();
+    } catch {
+      return; /* surfaced via isError */
+    }
+    // The change ends the session it was made with (the gateway refuses the
+    // old token): sign in again with the new password and stay here.
+    const state: SecurityState = { passwordChanged: true };
+    if (
+      await signInAgain(loginName, values.newPassword, ROUTES.SECURITY, state)
+    ) {
       // Clear the password fields after a successful change.
       form.restart();
-    } catch {
-      /* surfaced via isError */
     }
   };
 
   return (
     <Card>
       <h3 className="mb-4 text-lg font-medium">Change password</h3>
-      {isSuccess && <Alert kind="success">Password changed.</Alert>}
+      {changed && <Alert kind="success">Password changed.</Alert>}
       {isError && <Alert kind="error">Could not change password.</Alert>}
       <Form<ChangePasswordValues>
         onSubmit={onSubmit}

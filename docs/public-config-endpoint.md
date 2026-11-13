@@ -45,8 +45,8 @@ flags the developer sets in **Cloud → Membership → Access**.
 | `auth.passwordPolicy` | gated by **expose auth** (default OFF) |
 
 When **expose auth** is OFF (the default), the portal falls back to its
-defaults: **email** login + a **minLength-3** password policy (matching the Hub
-`PasswordComplexity` default). So the default posture reveals almost nothing
+defaults: **email** login + a **minLength-6** password policy (matching the
+Membership default rule: at least 6 characters, nothing else). So the default posture reveals almost nothing
 about a project's auth — only which socials/passkey exist (which the login
 screen shows regardless).
 
@@ -114,5 +114,6 @@ Membership → Access** as two checkboxes, each with a docs link:
 
 ### 3. Password-policy default
 
-`PasswordComplexity.MinLength` default was changed `0 → 3` (domain). The portal
-default mirrors `minLength: 3`. Keep them in sync.
+The Membership default rule is at least 6 characters and nothing else (owner,
+2026-11-13; it was `0 → 3` before). The portal default mirrors `minLength: 6`.
+Keep them in sync.
