@@ -23,7 +23,7 @@
  */
 import type { PublicSocialSignIn } from '@/types/projectConfig';
 import { ROUTES } from '@/routes';
-import type { LinkAddress } from './linkToken';
+import { linkParam, type LinkAddress } from './linkToken';
 
 /** Names the gateway knows; anything else is shown as "the provider". */
 const PROVIDER_LABEL: Record<string, string> = {
@@ -128,8 +128,11 @@ export type SocialCallback =
   | { kind: 'signIn'; provider: string; code: string }
   | { kind: 'link'; provider: string; code: string }
   | { kind: 'error'; error: string; provider: string; link: boolean }
-  /** The old token-in-the-URL answer (e.g. a passkey recovery link). */
-  | { kind: 'token' }
+  /**
+   * The passkey recovery e-mail link (`#token=…`, recovery.ts). `token` is
+   * empty when the link carries the name but no value.
+   */
+  | { kind: 'recovery'; token: string }
   | { kind: 'none' };
 
 /** Every parameter the page reads; all are taken out of the address bar. */
@@ -140,8 +143,9 @@ export const CALLBACK_PARAM_NAMES = [
   'error',
   'via',
   'link',
-  // Old answers carried a token here; it is never used, but never left in
-  // the address bar either.
+  // The recovery link's one-time token (fragment). Old answers also carried
+  // a session token here; it is never used, but never left in the address
+  // bar either.
   'token',
   'bearerToken',
   'access_token',
@@ -149,7 +153,11 @@ export const CALLBACK_PARAM_NAMES = [
   'user_id',
 ];
 
-/** Read the callback query (the gateway always answers in the query). */
+/**
+ * Read the callback address. Social answers are always in the query; the
+ * recovery link's token is in the fragment (the query is read too, for a link
+ * that was rewritten).
+ */
 export function readSocialCallback(address: LinkAddress): SocialCallback {
   const query = new URLSearchParams(address.search);
   const fragment = new URLSearchParams(address.hash.replace(/^#/, ''));
@@ -166,12 +174,8 @@ export function readSocialCallback(address: LinkAddress): SocialCallback {
       ? { kind: 'link', provider, code }
       : { kind: 'signIn', provider, code };
   }
-  if (
-    ['token', 'bearerToken', 'access_token'].some(
-      (n) => fragment.get(n) || query.get(n),
-    )
-  ) {
-    return { kind: 'token' };
+  if (fragment.has('token') || query.has('token')) {
+    return { kind: 'recovery', token: linkParam(address, 'token') };
   }
   return { kind: 'none' };
 }

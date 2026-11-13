@@ -37,6 +37,19 @@ const calls = vi.hoisted(() => ({
   exchangeError: undefined as unknown,
   startError: undefined as unknown,
   finishError: undefined as unknown,
+  consume: [] as string[],
+  consumeAnswer: 'recovery.jwt' as string,
+  consumeError: undefined as unknown,
+}));
+
+// Only the call is replaced; the messages are the real ones.
+vi.mock('./recovery', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./recovery')>()),
+  consumeRecoveryLink: async (token: string) => {
+    calls.consume.push(token);
+    if (calls.consumeError) throw calls.consumeError;
+    return calls.consumeAnswer;
+  },
 }));
 
 vi.mock('./socialApi', () => ({
@@ -152,6 +165,9 @@ afterEach(() => {
   calls.exchangeError = undefined;
   calls.startError = undefined;
   calls.finishError = undefined;
+  calls.consume = [];
+  calls.consumeAnswer = 'recovery.jwt';
+  calls.consumeError = undefined;
   window.history.replaceState(null, '', '/');
 });
 
@@ -303,16 +319,63 @@ describe('/oauth/callback', () => {
     ).toBeTruthy();
     expect(screen.getByText('Sign-in methods')).toBeTruthy();
   });
+});
 
-  it('a token in the URL is not stored as a session', async () => {
-    const store = renderAt('/oauth/callback#token=t1&userId=u1');
+describe('/oauth/callback — passkey recovery link (#token=…)', () => {
+  it('redeems the token, stores the recovery session (never the link token) and leads to a new passkey', async () => {
+    const store = renderAt('/oauth/callback#token=link-token-1', {
+      signedIn: true,
+    });
+
+    expect(
+      await screen.findByText(/You signed in with a recovery link/),
+    ).toBeTruthy();
+    expect(calls.consume).toEqual(['link-token-1']);
+    const authState = store.getState().auth;
+    expect(authState.token).toBe('recovery.jwt');
+    expect(authState.recovery).toBe(true);
+    expect(JSON.stringify(authState)).not.toContain('link-token-1');
+    expect(window.location.hash).toBe('');
+    // Changing the password needs the current one: not offered here.
+    expect(screen.queryByText('Change password')).toBeNull();
+    expect(
+      screen
+        .getByRole('link', { name: 'set a new password by e-mail' })
+        .getAttribute('href'),
+    ).toBe('/sign-in/reset');
+  });
+
+  it('an expired or used link (CM-ERRORS-PASSKEY-016): plain message, nothing stored', async () => {
+    calls.consumeError = refused('CM-ERRORS-PASSKEY-016');
+    const store = renderAt('/oauth/callback#token=used-token');
+
     expect(
       await screen.findByText(
-        'This sign-in link cannot be used here. Please sign in another way.',
+        'This recovery link has expired or was already used. Please ask for a new one.',
       ),
     ).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Sign in' })).toBeTruthy();
     expect(store.getState().auth.token).toBeNull();
     expect(window.location.hash).toBe('');
+  });
+
+  it('a link with no token: says it is incomplete and calls nothing', async () => {
+    const store = renderAt('/oauth/callback#token=');
+    expect(
+      await screen.findByText(
+        'This recovery link is incomplete. Please open the whole link from the e-mail, or ask for a new one.',
+      ),
+    ).toBeTruthy();
+    expect(calls.consume).toEqual([]);
+    expect(store.getState().auth.token).toBeNull();
+  });
+
+  it('an old session token in the URL is not stored', async () => {
+    const store = renderAt('/oauth/callback?access_token=t1');
+    expect(
+      await screen.findByText('Sign-in did not complete. Please try again.'),
+    ).toBeTruthy();
+    expect(store.getState().auth.token).toBeNull();
   });
 });
 

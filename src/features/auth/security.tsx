@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Form } from 'react-final-form';
 import type { FormApi } from 'final-form';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { PageHeader, Card, Button, Alert, Spinner } from '@/components/ui';
 import { TextInputField } from '@/components/forms/fields';
 import { requiredValidator } from '@/components/forms/validators';
@@ -9,7 +9,7 @@ import { useChangePasswordMutation } from '@/services/norbix';
 import { useAppSelector } from '@/app/hooks';
 import { ROUTES } from '@/routes';
 import { PasskeysCard } from './passkeys';
-import { selectLoginName, selectUserId } from './slice';
+import { selectLoginName, selectRecoverySession, selectUserId } from './slice';
 import { useSignInAgain } from './signInAgain';
 import { selectProjectAuth } from '@/features/project/slice';
 import {
@@ -30,6 +30,7 @@ interface SecurityState extends LinkResultState {
 }
 
 export function SecurityOverview() {
+  const recovery = useAppSelector(selectRecoverySession);
   return (
     <>
       <PageHeader
@@ -37,9 +38,28 @@ export function SecurityOverview() {
         subtitle="Manage your password, passkeys and sign-in methods."
       />
       <div className="flex flex-col gap-6">
-        <ChangePasswordCard />
-        <PasskeysCard />
-        <SignInMethodsCard />
+        {recovery ? (
+          // A recovery-link session (recovery.ts): lead to a new passkey.
+          // Changing the password needs the current one, and linking needs
+          // the login id this session does not carry, so both wait.
+          <>
+            <Alert kind="info">
+              You signed in with a recovery link. Add a new passkey below to
+              keep access to your account, or{' '}
+              <Link to={ROUTES.PASSWORD_RESET} className="underline">
+                set a new password by e-mail
+              </Link>
+              . This session ends in a few minutes.
+            </Alert>
+            <PasskeysCard />
+          </>
+        ) : (
+          <>
+            <ChangePasswordCard />
+            <PasskeysCard />
+            <SignInMethodsCard />
+          </>
+        )}
       </div>
     </>
   );

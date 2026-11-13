@@ -142,9 +142,22 @@ describe('readSocialCallback — /oauth/callback', () => {
     );
   });
 
-  it('a token in the URL is never a session', () => {
-    expect(read('', '#token=t1&userId=u1')).toEqual({ kind: 'token' });
-    expect(read('?access_token=t2')).toEqual({ kind: 'token' });
+  it('the recovery e-mail link: the token from the fragment, then the query', () => {
+    expect(read('', '#token=t1')).toEqual({ kind: 'recovery', token: 't1' });
+    expect(read('?token=t2')).toEqual({ kind: 'recovery', token: 't2' });
+    expect(read('?token=q', '#token=f')).toEqual({
+      kind: 'recovery',
+      token: 'f',
+    });
+  });
+
+  it('a recovery link with the name but no token says so (empty token)', () => {
+    expect(read('', '#token=')).toEqual({ kind: 'recovery', token: '' });
+  });
+
+  it('an old session token in the URL is never read', () => {
+    expect(read('?access_token=t2')).toEqual({ kind: 'none' });
+    expect(read('', '#bearerToken=t3')).toEqual({ kind: 'none' });
   });
 
   it('nothing to read', () => {

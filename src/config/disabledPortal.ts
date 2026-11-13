@@ -9,10 +9,10 @@
 // name, colours or logo), and nothing else.
 //
 // Not /oauth/callback: it is where social sign-in comes back, and where the
-// passkey recovery e-mail links (#token=…, not consumed by the portal yet —
-// README "Social sign-in"). Both sign in to the portal; with the portal off
-// there is nothing to do after it, so it shows "Portal unavailable" like
-// every other page.
+// passkey recovery e-mail links (#token=…, README "Passkey recovery link").
+// Both sign in to the portal so the user can add a passkey there; with the
+// portal off there is nothing to do after it, so it shows "Portal
+// unavailable" like every other page.
 
 import { ROUTES } from '@/routes';
 import type { ProjectConfig } from '@/types/projectConfig';

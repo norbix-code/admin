@@ -15,6 +15,9 @@
 //                     config; {"linkConflict":true} answers the link finish
 //                     with 409 CM-ERRORS-MEMBERSHIP-055
 //   GET  /__provider?next=… → the "provider": sends the browser on to `next`
+//   POST /v3/membership/userauth/recovery/magic-link/consume → token
+//        "e2e-recovery-token" answers a recovery session once; anything else
+//        (or a second use) is CM-ERRORS-PASSKEY-016
 
 import { createServer } from 'node:http';
 
@@ -54,6 +57,8 @@ const reset = (opts = {}) => {
     socialExchanges: [],
     linkStarts: [],
     linkFinishes: [],
+    // Passkey recovery link redemptions (social sign-in spec).
+    recoveryConsumes: [],
     sessions: [],
     entries: [],
     feedback: [],
@@ -370,6 +375,35 @@ const server = createServer(async (req, res) => {
         ],
       });
     }
+  }
+
+  // ── Passkey recovery link (MembershipPortalLinks.MagicLink) ──
+  if (
+    path === '/v3/membership/userauth/recovery/magic-link/consume' &&
+    req.method === 'POST'
+  ) {
+    const body = await readBody(req);
+    const used = state.recoveryConsumes.some((c) => c.ok);
+    const ok = body.token === 'e2e-recovery-token' && !used;
+    state.recoveryConsumes.push({
+      token: body.token,
+      authorization: auth ?? null,
+      project: req.headers['norbix-project-id'] ?? null,
+      ok,
+    });
+    if (!ok) {
+      return refuse(
+        res,
+        'The recovery link is invalid or has already been used',
+        'CM-ERRORS-PASSKEY-016',
+      );
+    }
+    return json(res, 200, {
+      accessToken: 'e2e-recovery-session',
+      refreshToken: 'e2e-refresh',
+      expiresInSeconds: 900,
+      remainingCodes: 0,
+    });
   }
 
   // ── Social sign-in + link identity (gateway feat/membership-social) ──

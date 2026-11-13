@@ -149,3 +149,55 @@ test('a stale token still in the browser is not sent on the exchange', async ({
     { code: 'e2e-social-code', authorization: null, project: 'pr_e2e' },
   ]);
 });
+
+test('passkey recovery link: redeemed with no credentials, recovery session on Security; a second use is refused', async ({
+  page,
+  baseURL,
+}) => {
+  await page.request.post(`${FAKE_API}/__reset`, { data: {} });
+  // A stale session is still in the browser.
+  await signedInAs(page);
+
+  await page.goto('/oauth/callback#token=e2e-recovery-token');
+  await expect(
+    page.getByText(/You signed in with a recovery link/),
+  ).toBeVisible();
+  await expect(page).toHaveURL(`${baseURL}/security`);
+  const stored = await page.evaluate(() =>
+    window.localStorage.getItem('persist:norbix-admin'),
+  );
+  expect(stored).toContain('e2e-recovery-session');
+  expect(stored).not.toContain('e2e-recovery-token');
+
+  // The same link again: refused, worded plainly.
+  await page.goto('/oauth/callback#token=e2e-recovery-token');
+  await expect(
+    page.getByText(
+      'This recovery link has expired or was already used. Please ask for a new one.',
+    ),
+  ).toBeVisible();
+
+  const res = await page.request.get(`${FAKE_API}/__state`);
+  const s = (await res.json()) as {
+    recoveryConsumes: {
+      token: string;
+      authorization: string | null;
+      project: string | null;
+      ok: boolean;
+    }[];
+  };
+  expect(s.recoveryConsumes).toEqual([
+    {
+      token: 'e2e-recovery-token',
+      authorization: null,
+      project: 'pr_e2e',
+      ok: true,
+    },
+    {
+      token: 'e2e-recovery-token',
+      authorization: null,
+      project: 'pr_e2e',
+      ok: false,
+    },
+  ]);
+});

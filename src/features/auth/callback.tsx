@@ -19,6 +19,11 @@ import {
   type SocialCallback,
 } from './social';
 import { exchangeSocialCode, finishLinkIdentity } from './socialApi';
+import {
+  consumeRecoveryLink,
+  recoveryErrorMessage,
+  RECOVERY_LINK_INCOMPLETE,
+} from './recovery';
 
 /** Router state the Security page reads after a link (security.tsx). */
 export interface LinkResultState {
@@ -40,7 +45,11 @@ export interface LinkResultState {
  *  - a link code is finished as the signed-in user, who goes back to
  *    Security with "Linked …" or the reason it failed;
  *  - an error is shown in plain words with the sign-in button. A failed link
- *    goes back to Security instead, when the user is still signed in.
+ *    goes back to Security instead, when the user is still signed in;
+ *  - the passkey recovery e-mail link (`#token=…`) is redeemed with no
+ *    credentials (recovery.ts); its restricted session is stored marked as a
+ *    recovery, and the user goes to Security to add a new passkey. The link
+ *    token itself is never stored.
  */
 export function OAuthCallback() {
   const location = useLocation();
@@ -97,6 +106,21 @@ export function OAuthCallback() {
       return;
     }
 
+    if (answer.kind === 'recovery' && answer.token) {
+      consumeRecoveryLink(answer.token).then(
+        (accessToken) => {
+          // Navigate first, as for a sign-in code: the routes re-mount on
+          // the new token.
+          navigate(ROUTES.SECURITY, { replace: true });
+          dispatch(
+            signedIn({ token: accessToken, userId: '', recovery: true }),
+          );
+        },
+        (err) => setFailure(recoveryErrorMessage(err)),
+      );
+      return;
+    }
+
     if (answer.kind === 'error' && answer.link && userId) {
       const state: LinkResultState = {
         linkError: callbackErrorMessage(answer.error, answer.provider, buttons),
@@ -124,7 +148,13 @@ export function OAuthCallback() {
       ) : (
         <div className="flex justify-center py-6">
           <Spinner
-            label={answer.kind === 'link' ? 'Linking…' : 'Signing you in…'}
+            label={
+              answer.kind === 'link'
+                ? 'Linking…'
+                : answer.kind === 'recovery'
+                  ? 'Checking your recovery link…'
+                  : 'Signing you in…'
+            }
           />
         </div>
       )}
@@ -152,11 +182,8 @@ function firstMessage(
       return answer.link && signedIn
         ? null
         : callbackErrorMessage(answer.error, answer.provider, buttons);
-    case 'token':
-      // The passkey recovery e-mail still links here with #token=…; that
-      // token must be consumed (…/recovery/magic-link/consume), which this
-      // page does not do. Never store it as a session.
-      return 'This sign-in link cannot be used here. Please sign in another way.';
+    case 'recovery':
+      return answer.token ? null : RECOVERY_LINK_INCOMPLETE;
     case 'none':
       return 'Sign-in did not complete. Please try again.';
   }

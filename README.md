@@ -128,9 +128,33 @@ reached: for sign-in that is the API host itself; for a link start (sent
 through the proxy) it is the proxy's `API_BASE_URL`, which must therefore be
 the same public API host, not an internal address.
 
-The passkey recovery e-mail also links to `/oauth/callback` (`#token=…`). That
-token must be consumed (`…/userauth/recovery/magic-link/consume`), which this
-page does not do yet; it says so and never stores it as a session.
+### Passkey recovery link
+
+The gateway's passkey recovery e-mail links to
+`{portal}/oauth/callback#token=…` (`MembershipPortalLinks.MagicLink`). The
+same page handles it:
+
+- the token is read from the fragment (then the query), taken out of the
+  address bar and redeemed once with
+  `api.membership.consumeMagicLink({ token })` on a client with **no**
+  credentials (a recovering user often still has an old token);
+- the answer is a **restricted** recovery session (`amr=MagicLink`, a
+  15-minute access token, no refresh in the portal). Only its `accessToken`
+  is stored, marked as a recovery; the link token and the refresh token never
+  are;
+- the user lands on Security with "You signed in with a recovery link": add a
+  new passkey (the card asks for the e-mail, which this session cannot read,
+  and proves it with the e-mailed code), or set a new password by e-mail
+  (`/sign-in/reset`). Change password (needs the current one) and linking
+  (needs the login id) are hidden for this session. Adding a passkey ends the
+  recovery mark;
+- refusals in plain words: expired or used (CM-ERRORS-PASSKEY-016), turned
+  off for the project (-015), another environment
+  (CM-ERRORS-MEMBERSHIP-USERS-049), too many attempts (429), and a link with
+  no token.
+
+The portal leads to a new passkey; it does not lock the other pages (the
+gateway does not restrict the session either).
 
 ## State management
 
