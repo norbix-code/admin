@@ -11,6 +11,7 @@ import { ROUTES } from '@/routes';
 import { PasskeysCard } from './passkeys';
 import { selectLoginName, selectRecoverySession, selectUserId } from './slice';
 import { useSignInAgain } from './signInAgain';
+import { changePasswordErrorMessage } from './passwordChange';
 import { selectProjectAuth } from '@/features/project/slice';
 import {
   providerLabel,
@@ -72,7 +73,9 @@ interface ChangePasswordValues {
 }
 
 function ChangePasswordCard() {
-  const [change, { isLoading, isError }] = useChangePasswordMutation();
+  const [change, { isLoading }] = useChangePasswordMutation();
+  // Why the gateway refused the change (wrong current password, the rule).
+  const [failure, setFailure] = useState<string | null>(null);
   const loginName = useAppSelector(selectLoginName);
   const signInAgain = useSignInAgain();
   // The page re-mounts on the new token; the success note travels in the
@@ -85,13 +88,15 @@ function ChangePasswordCard() {
     values: ChangePasswordValues,
     form: FormApi<ChangePasswordValues>,
   ) => {
+    setFailure(null);
     try {
       await change({
         currentPassword: values.currentPassword,
         newPassword: values.newPassword,
       }).unwrap();
-    } catch {
-      return; /* surfaced via isError */
+    } catch (err) {
+      setFailure(changePasswordErrorMessage(err));
+      return;
     }
     // The change ends the session it was made with (the gateway refuses the
     // old token): sign in again with the new password and stay here.
@@ -108,7 +113,7 @@ function ChangePasswordCard() {
     <Card>
       <h3 className="mb-4 text-lg font-medium">Change password</h3>
       {changed && <Alert kind="success">Password changed.</Alert>}
-      {isError && <Alert kind="error">Could not change password.</Alert>}
+      {failure && <Alert kind="error">{failure}</Alert>}
       <Form<ChangePasswordValues>
         onSubmit={onSubmit}
         initialValues={{ currentPassword: '', newPassword: '' }}

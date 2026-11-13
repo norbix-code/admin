@@ -30,6 +30,7 @@ const api = vi.hoisted(() => ({
   loginCalls: [] as unknown[],
   changeCalls: [] as unknown[],
   changeFails: false,
+  changeError: new Error('400') as unknown,
 }));
 
 vi.mock('@/services/publicApi', () => ({
@@ -50,7 +51,7 @@ vi.mock('@/services/norbix', () => ({
       api.changeCalls.push(body);
       return {
         unwrap: async () => {
-          if (api.changeFails) throw new Error('400');
+          if (api.changeFails) throw api.changeError;
           return {};
         },
       };
@@ -78,7 +79,17 @@ const CONFIG = {
   links: {},
 } as ProjectConfig;
 
-function renderApp(entry: string, { signedInAlready = false } = {}) {
+// The project shares its auth settings with the portal ("expose auth") and
+// its stored rule is stricter than the portal default.
+const EXPOSED_CONFIG = {
+  ...CONFIG,
+  auth: { ...CONFIG.auth, passwordPolicy: { minLength: 10 }, exposed: true },
+} as ProjectConfig;
+
+function renderApp(
+  entry: string,
+  { signedInAlready = false, config: cfg = CONFIG } = {},
+) {
   const store = configureStore({
     reducer: combineReducers({ auth, config, project }),
   });
@@ -89,12 +100,12 @@ function renderApp(entry: string, { signedInAlready = false } = {}) {
     <Provider store={store}>
       <MemoryRouter initialEntries={[entry]}>
         <Routes>
-          <Route path={ROUTES.SIGN_IN} element={<Login config={CONFIG} />} />
+          <Route path={ROUTES.SIGN_IN} element={<Login config={cfg} />} />
           <Route
             path={ROUTES.SECURITY_PASSWORD}
             element={
               <RequireAuth>
-                <PasswordChangeRequired config={CONFIG} />
+                <PasswordChangeRequired config={cfg} />
               </RequireAuth>
             }
           />
@@ -161,6 +172,7 @@ afterEach(() => {
   api.loginCalls = [];
   api.changeCalls = [];
   api.changeFails = false;
+  api.changeError = new Error('400');
 });
 
 describe('sign-in with meta.passwordChangeRequired', () => {
@@ -231,13 +243,13 @@ describe('inside the token-keyed router (App.tsx)', () => {
 });
 
 describe('the change-password step', () => {
-  const reachStep = async () => {
+  const reachStep = async (config: ProjectConfig = CONFIG) => {
     api.loginAnswers.push({
       bearerToken: 'old.token',
       userId: 'usr_1',
       meta: { passwordChangeRequired: 'true' },
     });
-    renderApp(ROUTES.SIGN_IN);
+    renderApp(ROUTES.SIGN_IN, { config });
     signIn('abc');
     await screen.findByText(REASON);
   };
@@ -268,12 +280,56 @@ describe('the change-password step', () => {
     });
   });
 
-  it('checks the new password against the project rule before sending', async () => {
-    await reachStep();
-    choose('abc', 'short');
+  it('with the rule shared ("expose auth"), shows it and checks it before sending', async () => {
+    await reachStep(EXPOSED_CONFIG);
+    expect(screen.getByText('At least 10 characters.')).toBeTruthy();
+    choose('abc', 'short-pw');
 
-    expect(await screen.findByText('Minimum 6 characters')).toBeTruthy();
+    expect(await screen.findByText('Minimum 10 characters')).toBeTruthy();
     expect(api.changeCalls).toHaveLength(0);
+  });
+
+  // Stack run 2026-11-13 (F3): with the rule not shared the step showed the
+  // portal default ("At least 6") under a stored rule of 10.
+  it('without the shared rule, shows no number, checks nothing locally and sends', async () => {
+    await reachStep();
+    expect(
+      screen.getByText(
+        "Use a password that meets the project's password rules.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/At least \d+ characters/)).toBeNull();
+    choose('abc', 'short-pw');
+
+    await waitFor(() => expect(api.changeCalls).toHaveLength(1));
+  });
+
+  it('a refusal for the rule says which parts the new password breaks', async () => {
+    await reachStep();
+    api.changeFails = true;
+    api.changeError = {
+      status: 400,
+      data: {
+        responseStatus: {
+          errors: [
+            {
+              errorCode: 'CM-ERRORS-MEMBERSHIP-USERS-023',
+              message:
+                'Password does not meet complexity requirements: MinLength, MinNumbers',
+            },
+          ],
+        },
+      },
+    };
+    choose('abc', 'short-pw');
+
+    expect(
+      await screen.findByText(
+        "The new password does not meet the project's password rules: it must be longer, have more numbers.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(REASON)).toBeTruthy();
+    expect(api.loginCalls).toHaveLength(1);
   });
 
   it('stays on the step with an error when the change is refused', async () => {

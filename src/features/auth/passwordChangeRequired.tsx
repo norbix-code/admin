@@ -14,7 +14,9 @@ import { ROUTES } from '@/routes';
 import type { ProjectConfig } from '@/types/projectConfig';
 import { useSignInAgain } from './signInAgain';
 import {
+  changePasswordErrorMessage,
   PASSWORD_CHANGE_REASON,
+  PASSWORD_RULES_UNKNOWN_HINT,
   type PasswordChangeState,
 } from './passwordChange';
 
@@ -34,22 +36,27 @@ export function PasswordChangeRequired({ config }: { config: ProjectConfig }) {
   const location = useLocation();
   const [change, { isLoading }] = useChangePasswordMutation();
   const signInAgain = useSignInAgain();
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
 
   const state = location.state as PasswordChangeState | null;
   if (!state?.required) return <Navigate to={ROUTES.HOME} replace />;
 
-  const { passwordPolicy } = config.auth;
+  // The portal gets the project's password rule only when the project shares
+  // its auth settings with the Admin Portal ("expose auth", off by default).
+  // Otherwise the rule here is just the portal's default, which may be weaker
+  // than the stored one — so it is neither shown nor checked, and the
+  // gateway's answer says what is wrong.
+  const { passwordPolicy, exposed } = config.auth;
 
   const onSubmit = async (values: Values) => {
-    setFailed(false);
+    setFailure(null);
     try {
       await change({
         currentPassword: values.currentPassword,
         newPassword: values.newPassword,
       }).unwrap();
-    } catch {
-      setFailed(true);
+    } catch (err) {
+      setFailure(changePasswordErrorMessage(err));
       return;
     }
     // The change ends the session it was made with: sign in again.
@@ -65,12 +72,9 @@ export function PasswordChangeRequired({ config }: { config: ProjectConfig }) {
         Choose a new password
       </h2>
       <Alert kind="info">{PASSWORD_CHANGE_REASON}</Alert>
-      {failed && (
+      {failure && (
         <div className="mt-4">
-          <Alert kind="error">
-            Could not change the password. Check the current password and the
-            rules below.
-          </Alert>
+          <Alert kind="error">{failure}</Alert>
         </div>
       )}
       <Form<Values>
@@ -95,16 +99,20 @@ export function PasswordChangeRequired({ config }: { config: ProjectConfig }) {
               type="password"
               label="New password"
               autoComplete="new-password"
-              validate={composeValidators(
-                requiredValidator,
-                passwordPolicyValidator(passwordPolicy),
-              )}
+              validate={
+                exposed
+                  ? composeValidators(
+                      requiredValidator,
+                      passwordPolicyValidator(passwordPolicy),
+                    )
+                  : requiredValidator
+              }
             />
-            {passwordPolicy.minLength > 0 && (
-              <p className="-mt-2 text-xs text-fg-subtle">
-                At least {passwordPolicy.minLength} characters.
-              </p>
-            )}
+            <p className="-mt-2 text-xs text-fg-subtle">
+              {exposed && passwordPolicy.minLength > 0
+                ? `At least ${passwordPolicy.minLength} characters.`
+                : PASSWORD_RULES_UNKNOWN_HINT}
+            </p>
             <Button type="submit" block disabled={submitting || isLoading}>
               {submitting || isLoading ? <Spinner /> : 'Save new password'}
             </Button>
