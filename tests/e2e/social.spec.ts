@@ -128,3 +128,24 @@ test('Security → Link Google, account of someone else (409): says so', async (
   ).toBeVisible();
   await expect(page.getByText('Linked Google.')).toHaveCount(0);
 });
+
+test('a stale token still in the browser is not sent on the exchange', async ({
+  page,
+  baseURL,
+}) => {
+  await page.request.post(`${FAKE_API}/__reset`, { data: { social: true } });
+  await signedInAs(page);
+
+  await page.goto(
+    '/oauth/callback?via=google&code=e2e-social-code&provider=google',
+  );
+  await expect(
+    page.getByRole('heading', { name: 'Your account' }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(`${baseURL}/`);
+
+  const s = await state(page);
+  expect(s.socialExchanges).toMatchObject([
+    { code: 'e2e-social-code', authorization: null, project: 'pr_e2e' },
+  ]);
+});
