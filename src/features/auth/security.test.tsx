@@ -21,6 +21,7 @@ const api = vi.hoisted(() => ({
   loginAnswers: [] as unknown[],
   loginCalls: [] as unknown[],
   changeCalls: [] as unknown[],
+  changeError: null as unknown,
 }));
 
 vi.mock('@/services/norbix', () => ({
@@ -35,7 +36,12 @@ vi.mock('@/services/norbix', () => ({
   useChangePasswordMutation: () => [
     (body: unknown) => {
       api.changeCalls.push(body);
-      return { unwrap: async () => ({}) };
+      return {
+        unwrap: async () => {
+          if (api.changeError) throw api.changeError;
+          return {};
+        },
+      };
     },
     { isLoading: false, isError: false },
   ],
@@ -79,6 +85,7 @@ afterEach(() => {
   api.loginAnswers = [];
   api.loginCalls = [];
   api.changeCalls = [];
+  api.changeError = null;
 });
 
 describe('Security → Change password', () => {
@@ -117,5 +124,29 @@ describe('Security → Change password', () => {
 
     expect(await screen.findByText('Sign-in screen')).toBeTruthy();
     expect(store.getState().auth.token).toBeNull();
+  });
+
+  it('a refused change says why, stays signed in and does not sign in again', async () => {
+    const store = renderSecurity('anna@shop.test');
+    api.changeError = {
+      status: 400,
+      data: {
+        responseStatus: {
+          errors: [
+            {
+              errorCode: 'CM-ERRORS-MEMBERSHIP-USERS-024',
+              message: 'Email or current password is invalid',
+            },
+          ],
+        },
+      },
+    };
+    changeTo('new-password-1');
+
+    expect(
+      await screen.findByText('The current password is not right.'),
+    ).toBeTruthy();
+    expect(api.loginCalls).toHaveLength(0);
+    expect(store.getState().auth.token).toBe('old.token');
   });
 });
