@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Form } from 'react-final-form';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { AuthLayout } from '@/components/layouts';
 import { Alert, Button, Spinner } from '@/components/ui';
 import { TextInputField } from '@/components/forms/fields';
@@ -9,11 +9,10 @@ import {
   passwordPolicyValidator,
   requiredValidator,
 } from '@/components/forms/validators';
-import { useChangePasswordMutation, useLoginMutation } from '@/services/norbix';
-import { useAppDispatch } from '@/app/hooks';
+import { useChangePasswordMutation } from '@/services/norbix';
 import { ROUTES } from '@/routes';
 import type { ProjectConfig } from '@/types/projectConfig';
-import { reset, signedIn } from './slice';
+import { useSignInAgain } from './signInAgain';
 import {
   PASSWORD_CHANGE_REASON,
   type PasswordChangeState,
@@ -33,10 +32,8 @@ interface Values {
  */
 export function PasswordChangeRequired({ config }: { config: ProjectConfig }) {
   const location = useLocation();
-  const navigate = useNavigate();
-  const dispatch = useAppDispatch();
   const [change, { isLoading }] = useChangePasswordMutation();
-  const [login] = useLoginMutation();
+  const signInAgain = useSignInAgain();
   const [failed, setFailed] = useState(false);
 
   const state = location.state as PasswordChangeState | null;
@@ -56,24 +53,7 @@ export function PasswordChangeRequired({ config }: { config: ProjectConfig }) {
       return;
     }
     // The change ends the session it was made with: sign in again.
-    try {
-      const res = await login({
-        provider: 'credentials',
-        userName: state.userName,
-        password: values.newPassword,
-      }).unwrap();
-      if (res.bearerToken) {
-        dispatch(
-          signedIn({ token: res.bearerToken, userId: res.userId ?? '' }),
-        );
-        navigate(ROUTES.HOME, { replace: true });
-        return;
-      }
-    } catch {
-      /* fall through: sign in by hand */
-    }
-    dispatch(reset());
-    navigate(ROUTES.SIGN_IN, { replace: true });
+    await signInAgain(state.userName, values.newPassword, ROUTES.HOME);
   };
 
   return (

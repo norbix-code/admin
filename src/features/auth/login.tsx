@@ -94,7 +94,11 @@ export function Login({ config }: { config: ProjectConfig }) {
           };
         }
         dispatch(
-          signedIn({ token: res.bearerToken, userId: res.userId ?? '' }),
+          signedIn({
+            token: res.bearerToken,
+            userId: res.userId ?? '',
+            loginName: values.userName,
+          }),
         );
       }
     } catch {
