@@ -22,7 +22,8 @@ const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:3100';
 
 export default defineConfig({
   testDir: '.',
-  testMatch: /chat-stack\.spec\.ts$/,
+  // every *-stack.spec.ts: chat-stack plus the Membership stack specs
+  testMatch: /-stack\.spec\.ts$/,
   outputDir: '../../test-results/e2e-stack',
   fullyParallel: false,
   workers: 1,

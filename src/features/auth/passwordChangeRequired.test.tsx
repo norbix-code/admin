@@ -17,8 +17,8 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
-import { Provider } from 'react-redux';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { Provider, useSelector } from 'react-redux';
+import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router-dom';
 import auth, { signedIn } from '@/features/auth/slice';
 import config from '@/config/slice';
 import project from '@/features/project/slice';
@@ -105,6 +105,43 @@ function renderApp(entry: string, { signedInAlready = false } = {}) {
   );
 }
 
+// As App.tsx renders it: the provider — and the BrowserRouter under it — is
+// re-keyed on the token, so every screen re-mounts when the token lands and
+// the router reads the location (and its state) back from the history entry.
+function KeyedOnToken() {
+  const token = useSelector(
+    (s: { auth: { token: string | null } }) => s.auth.token,
+  );
+  return (
+    <BrowserRouter key={token ?? 'anon'}>
+      <Routes>
+        <Route path={ROUTES.SIGN_IN} element={<Login config={CONFIG} />} />
+        <Route
+          path={ROUTES.SECURITY_PASSWORD}
+          element={
+            <RequireAuth>
+              <PasswordChangeRequired config={CONFIG} />
+            </RequireAuth>
+          }
+        />
+        <Route path={ROUTES.HOME} element={<p>Landing page</p>} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+function renderKeyedApp() {
+  window.history.replaceState(null, '', ROUTES.SIGN_IN);
+  const store = configureStore({
+    reducer: combineReducers({ auth, config, project }),
+  });
+  render(
+    <Provider store={store}>
+      <KeyedOnToken />
+    </Provider>,
+  );
+}
+
 const signIn = (password: string) => {
   fireEvent.change(screen.getByLabelText('Email'), {
     target: { value: 'anna@shop.test' },
@@ -163,6 +200,33 @@ describe('sign-in with meta.passwordChangeRequired', () => {
       userName: 'anna@shop.test',
       password: 'abc',
     });
+  });
+});
+
+describe('inside the token-keyed router (App.tsx)', () => {
+  // Stack run 2026-11-13: the step never showed in the real portal — the
+  // re-mount on the new token reset the screen's target to home.
+  it('"true" still reaches the change-password step after the re-mount', async () => {
+    api.loginAnswers.push({
+      bearerToken: 'old.token',
+      userId: 'usr_1',
+      meta: { credentialVersion: 'v1', passwordChangeRequired: 'true' },
+    });
+    renderKeyedApp();
+    signIn('abc');
+
+    expect(await screen.findByText(REASON)).toBeTruthy();
+    expect(window.location.pathname).toBe(ROUTES.SECURITY_PASSWORD);
+    expect(screen.queryByText('Landing page')).toBeNull();
+  });
+
+  it('absent still lands home after the re-mount', async () => {
+    api.loginAnswers.push({ bearerToken: 'old.token', userId: 'usr_1' });
+    renderKeyedApp();
+    signIn('long-enough');
+
+    expect(await screen.findByText('Landing page')).toBeTruthy();
+    expect(window.location.pathname).toBe(ROUTES.HOME);
   });
 });
 

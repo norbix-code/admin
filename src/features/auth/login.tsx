@@ -93,6 +93,14 @@ export function Login({ config }: { config: ProjectConfig }) {
             state: { required: true, userName: values.userName },
           };
         }
+        // Navigate first, as useSignInAgain does: App re-keys the provider
+        // (and the router under it) on the new token, so this screen is
+        // re-mounted with a fresh `next` and its effect would go home. The
+        // target and its router state must already be in the history entry.
+        navigate(next.current.to, {
+          replace: true,
+          state: next.current.state,
+        });
         dispatch(
           signedIn({
             token: res.bearerToken,
