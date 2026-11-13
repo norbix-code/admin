@@ -10,7 +10,11 @@
 //   GET  /__state   → what the portal sent (feedback, stream requests …)
 //   GET  /__assets/logo.svg → the project's brand logo (public config logoUrl)
 //   POST /__reset   → back to the first-visit state; body {"refuseStream":true}
-//                     makes /event-stream answer 403 AiChatChannelRefused
+//                     makes /event-stream answer 403 AiChatChannelRefused;
+//                     {"social":true} offers Google sign-in in the public
+//                     config; {"linkConflict":true} answers the link finish
+//                     with 409 CM-ERRORS-MEMBERSHIP-055
+//   GET  /__provider?next=… → the "provider": sends the browser on to `next`
 
 import { createServer } from 'node:http';
 
@@ -43,6 +47,13 @@ let state;
 const reset = (opts = {}) => {
   state = {
     refuseStream: !!opts.refuseStream,
+    social: !!opts.social,
+    linkConflict: !!opts.linkConflict,
+    // What the portal sent on the social routes (social sign-in spec).
+    socialStarts: [],
+    socialExchanges: [],
+    linkStarts: [],
+    linkFinishes: [],
     sessions: [],
     entries: [],
     feedback: [],
@@ -202,7 +213,19 @@ const server = createServer(async (req, res) => {
         logoUrl: LOGO_URL,
         iconUrl: LOGO_URL,
       },
-      auth: { socialProviders: [], passkey: false },
+      auth: {
+        socialProviders: state.social ? ['google'] : [],
+        socialSignIn: state.social
+          ? [
+              {
+                provider: 'google',
+                displayName: 'Google',
+                startPath: `/v3/membership/auth/social/google?projectId=${PROJECT}`,
+              },
+            ]
+          : [],
+        passkey: false,
+      },
       aiChat: {
         enabled: true,
         assistants: [
@@ -347,6 +370,95 @@ const server = createServer(async (req, res) => {
         ],
       });
     }
+  }
+
+  // ── Social sign-in + link identity (gateway feat/membership-social) ──
+  // The start is a browser navigation straight to this host (not through the
+  // portal proxy): answer what the gateway answers after the provider round,
+  // a redirect to the return page with a one-time code.
+  const socialStart = /^\/v3\/membership\/auth\/social\/([a-z]+)$/.exec(path);
+  if (socialStart && req.method === 'GET') {
+    const returnUrl = url.searchParams.get('returnUrl') ?? '';
+    state.socialStarts.push({
+      provider: socialStart[1],
+      projectId: url.searchParams.get('projectId'),
+      returnUrl,
+    });
+    const back = new URL(returnUrl);
+    back.searchParams.set('code', 'e2e-social-code');
+    back.searchParams.set('provider', socialStart[1]);
+    res.writeHead(302, {
+      location: back.toString(),
+      'cache-control': 'no-store',
+    });
+    return res.end();
+  }
+  if (path === '/__provider') {
+    res.writeHead(302, { location: url.searchParams.get('next') ?? '/' });
+    return res.end();
+  }
+  const exchange = /^\/v3\/membership\/auth\/social\/([a-z]+)\/exchange$/.exec(
+    path,
+  );
+  if (exchange && req.method === 'POST') {
+    const body = await readBody(req);
+    state.socialExchanges.push({
+      provider: exchange[1],
+      code: body.code,
+      authorization: auth ?? null,
+      project: req.headers['norbix-project-id'] ?? null,
+    });
+    if (body.code !== 'e2e-social-code') {
+      return refuse(res, 'expired', 'CM-ERRORS-MEMBERSHIP-051');
+    }
+    return json(res, 200, {
+      bearerToken: TOKEN,
+      userId: 'usr_e2e',
+      displayName: 'E2E User',
+      meta: { credentialVersion: 'v0' },
+    });
+  }
+  const linkStart =
+    /^\/v3\/membership\/auth\/([^/]+)\/link-identity\/start$/.exec(path);
+  if (linkStart && req.method === 'POST') {
+    const body = await readBody(req);
+    state.linkStarts.push({
+      userId: linkStart[1],
+      ...body,
+      authorization: auth ?? null,
+    });
+    const back = new URL(body.returnUrl);
+    back.searchParams.set('intent', 'link');
+    back.searchParams.set('code', 'e2e-link-code');
+    back.searchParams.set('provider', body.provider);
+    return json(res, 200, {
+      authorizeUrl: `http://127.0.0.1:${PORT}/__provider?next=${encodeURIComponent(back.toString())}`,
+    });
+  }
+  const linkFinish = /^\/v3\/membership\/auth\/([^/]+)\/link-identity$/.exec(
+    path,
+  );
+  if (linkFinish && req.method === 'POST') {
+    const body = await readBody(req);
+    state.linkFinishes.push({
+      userId: linkFinish[1],
+      ...body,
+      authorization: auth ?? null,
+    });
+    if (state.linkConflict) {
+      return json(res, 409, {
+        responseStatus: {
+          isSuccess: false,
+          errors: [
+            {
+              message: 'The provider account is linked to another user.',
+              errorCode: 'CM-ERRORS-MEMBERSHIP-055',
+            },
+          ],
+        },
+      });
+    }
+    return json(res, 200, {});
   }
 
   json(res, 404, {
