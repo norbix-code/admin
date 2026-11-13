@@ -115,7 +115,7 @@ export async function until<T>(what: string, probe: () => Promise<T | null | und
 }
 
 /** Every array of objects anywhere in a JSON body, flattened (list shapes differ per route). */
-function rows(json: unknown): Json[] {
+export function rows(json: unknown): Json[] {
   const out: Json[] = [];
   const walk = (v: unknown) => {
     if (Array.isArray(v)) {
