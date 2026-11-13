@@ -1,14 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Form } from 'react-final-form';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthLayout } from '@/components/layouts';
 import { Button, Alert, Spinner } from '@/components/ui';
 import { TextInputField } from '@/components/forms/fields';
-import {
-  composeValidators,
-  minLengthValidator,
-  requiredValidator,
-} from '@/components/forms/validators';
+import { requiredValidator } from '@/components/forms/validators';
 import { useLoginMutation } from '@/services/norbix';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { signedIn, selectIsAuthenticated } from './slice';
@@ -23,6 +19,10 @@ import type {
 } from '@/types/projectConfig';
 import { getRuntimeApiRoot } from '@/config/runtimeApi';
 import { resolveProjectId } from '@/config/project';
+import {
+  passwordChangeRequiredOf,
+  type PasswordChangeState,
+} from './passwordChange';
 
 const SOCIAL_LABEL: Record<SocialProviderId, string> = {
   google: 'Google',
@@ -61,14 +61,22 @@ export function Login({ config }: { config: ProjectConfig }) {
   const navigate = useNavigate();
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
 
-  const { socialProviders, passkey, methods, passwordPolicy } = config.auth;
+  const { socialProviders, passkey, methods } = config.auth;
+  // Where to go once signed in: home, or the change-password step when the
+  // answer says the password breaks the project's current rules. Set before
+  // the token lands, so the effect below reads it in the same render.
+  const next = useRef<{ to: string; state?: PasswordChangeState }>({
+    to: ROUTES.HOME,
+  });
   // The passkey button renders nothing without WebAuthn, so only count it when
   // the browser can use it — otherwise "or continue with" would stand alone.
   const showPasskey = passkey && isWebAuthnAvailable();
   const { termsUrl, privacyUrl } = useLegalLinks(config);
 
   useEffect(() => {
-    if (isAuthenticated) navigate(ROUTES.HOME, { replace: true });
+    if (isAuthenticated) {
+      navigate(next.current.to, { replace: true, state: next.current.state });
+    }
   }, [isAuthenticated, navigate]);
 
   const onSubmit = async (values: LoginFormValues) => {
@@ -79,6 +87,12 @@ export function Login({ config }: { config: ProjectConfig }) {
         password: values.password,
       }).unwrap();
       if (res.bearerToken) {
+        if (passwordChangeRequiredOf(res)) {
+          next.current = {
+            to: ROUTES.SECURITY_PASSWORD,
+            state: { required: true, userName: values.userName },
+          };
+        }
         dispatch(
           signedIn({ token: res.bearerToken, userId: res.userId ?? '' }),
         );
@@ -123,31 +137,16 @@ export function Login({ config }: { config: ProjectConfig }) {
               autoComplete="username"
               validate={requiredValidator}
             />
+            {/* Required only: a password set under older, looser rules must
+                still reach the gateway, which signs the user in and asks for a
+                new one (meta.passwordChangeRequired). */}
             <TextInputField
               name="password"
               type="password"
               label="Password"
               autoComplete="current-password"
-              validate={composeValidators(
-                requiredValidator,
-                minLengthValidator(passwordPolicy.minLength),
-              )}
+              validate={requiredValidator}
             />
-            {passwordPolicy.minLength > 0 && (
-              <p className="-mt-2 text-xs text-fg-subtle">
-                Minimum {passwordPolicy.minLength} characters
-                {passwordPolicy.minNumbers
-                  ? `, ${passwordPolicy.minNumbers} number(s)`
-                  : ''}
-                {passwordPolicy.minUpper
-                  ? `, ${passwordPolicy.minUpper} uppercase`
-                  : ''}
-                {passwordPolicy.minSpecial
-                  ? `, ${passwordPolicy.minSpecial} special`
-                  : ''}
-                .
-              </p>
-            )}
             <Button type="submit" block disabled={submitting || isLoading}>
               {submitting || isLoading ? <Spinner /> : 'Sign in'}
             </Button>
