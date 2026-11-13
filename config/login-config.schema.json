@@ -31,6 +31,19 @@
             "enum": ["google", "github", "facebook", "apple", "microsoft"]
           }
         },
+        "socialSignIn": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["provider", "displayName", "startPath"],
+            "additionalProperties": false,
+            "properties": {
+              "provider": { "type": "string" },
+              "displayName": { "type": "string" },
+              "startPath": { "type": "string", "pattern": "^/[^/]" }
+            }
+          }
+        },
         "passkey": { "type": "boolean" },
         "methods": {
           "type": "array",

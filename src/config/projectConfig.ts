@@ -24,6 +24,7 @@ import type {
   PublicAiChat,
   StaticProjectConfig,
   SocialProviderId,
+  PublicSocialSignIn,
   AuthMethod,
   PasswordPolicy,
 } from '@/types/projectConfig';
@@ -65,6 +66,7 @@ const NEUTRAL_DEFAULTS: StaticProjectConfig = {
   },
   auth: {
     socialProviders: [],
+    socialSignIn: [],
     passkey: false,
     methods: ['email'],
     passwordPolicy: DEFAULT_PASSWORD_POLICY,
@@ -151,7 +153,8 @@ function merge(
 // Shape of GET /public/projects/{id}/config. The server gates fields by the
 // project's two opt-in flags: `branding` is null unless brand is exposed;
 // `auth.methods` / `auth.passwordPolicy` are null unless auth is exposed.
-// `socialProviders` + `passkey` are always present (safe to expose).
+// `socialProviders`, `socialSignIn` + `passkey` are always present (safe to
+// expose: a visitor sees the sign-in buttons anyway; no client id or secret).
 interface PublicConfigResponse {
   // The readable project name — NOT brand-gated, so it's present even when the
   // project does not expose its brand colors/logo. Used as the page title.
@@ -174,6 +177,7 @@ interface PublicConfigResponse {
   } | null;
   auth?: {
     socialProviders?: SocialProviderId[];
+    socialSignIn?: PublicSocialSignIn[] | null;
     passkey?: boolean;
     methods?: AuthMethod[] | null;
     passwordPolicy?: PasswordPolicy | null;
@@ -242,6 +246,7 @@ async function loadDynamicConfig(
   out.auth = {
     socialProviders:
       r.auth?.socialProviders ?? NEUTRAL_DEFAULTS.auth.socialProviders,
+    socialSignIn: r.auth?.socialSignIn ?? [],
     passkey: r.auth?.passkey ?? NEUTRAL_DEFAULTS.auth.passkey,
     methods: r.auth?.methods ?? NEUTRAL_DEFAULTS.auth.methods,
     passwordPolicy:

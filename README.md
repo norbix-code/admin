@@ -81,6 +81,57 @@ discovered `apiUrl` at request time. The env `VITE_ADMIN_API_BASE_URL` is only
 a fallback used when the Hub is unreachable. This mirrors how the Cloud portal
 consumes `/echo`.
 
+## Social sign-in
+
+The sign-in page shows one "Continue with …" button per entry of the public
+config's `auth.socialSignIn` (the enabled social sign-in integrations of the
+env: `provider`, `displayName`, `startPath`). No entries, no buttons.
+
+1. **Start.** The button sends the browser to
+   `{API host}{startPath}&returnUrl={portal}/oauth/callback?via={provider}`.
+   The API host is the origin of `apiUrl` from `/echo`, **not** the
+   same-origin proxy. The gateway sets a short-lived HttpOnly cookie on that
+   host and checks it when the provider calls back, so a start through the
+   proxy would put the cookie on the portal host and end in `state_mismatch`.
+   `startPath` already carries the project and the env (the portal's SDK
+   client knows neither the API host nor the env, so the SDK's
+   `socialSignInUrl` is not used for this one URL).
+2. **Return.** The gateway sends the browser to `/oauth/callback` with a
+   one-time `code` and `provider` (plus `intent=link` for a link), or with
+   `error=<reason>`. No token is ever in the URL. The page takes the code
+   out of the address bar, exchanges it through the proxy with no
+   credentials (`api.auth.exchangeSocialCode`, 2 minutes, once) and stores
+   the bearer JWT exactly like a password sign-in.
+3. **Link (Security → Sign-in methods).** "Link {provider}" calls
+   `api.membership.startLinkIdentity` as the signed-in user and sends the
+   browser to the `authorizeUrl` it answers. The return page finishes the
+   link (`finishLinkIdentity`) and goes back to Security with "Linked …", or
+   "This {provider} account belongs to someone else." (409,
+   CM-ERRORS-MEMBERSHIP-055). The page does not list the accounts already
+   linked: the API host has no read of a user's other logins.
+
+**The portal's origin must be allowed.** The gateway accepts `returnUrl` only
+when it is absolute https (plain http only for `localhost`) and its origin is
+in the project's CORS union: the saved Allowed Origins (Cloud → Project →
+Settings → Access) plus the origin of every environment admin URL. The hosted
+`pr-<hex>.admin.<domain>` host is **not** added by itself; save it (or a
+custom domain) as an Allowed Origin or set it as the environment's admin URL.
+For local development save `http://localhost:3100`. A refused start
+(CM-ERRORS-MEMBERSHIP-052, also 049 / 050 / 053) is a JSON answer on the API
+host's page: the browser never comes back to the portal, so the portal cannot
+word it.
+
+**At the provider**, register the callback
+`{API host}/v3/membership/auth/social/{provider}/callback/{projectId}` with
+the same host `/echo` reports. The gateway builds it from the host the request
+reached: for sign-in that is the API host itself; for a link start (sent
+through the proxy) it is the proxy's `API_BASE_URL`, which must therefore be
+the same public API host, not an internal address.
+
+The passkey recovery e-mail also links to `/oauth/callback` (`#token=…`). That
+token must be consumed (`…/userauth/recovery/magic-link/consume`), which this
+page does not do yet; it says so and never stores it as a session.
+
 ## State management
 
 The store backbone mirrors the Cloud project (`cloud/src/app/store.ts`):
