@@ -12,11 +12,22 @@ interface AuthState {
    * again with it and the new password. Null after a passkey or social sign-in.
    */
   loginName?: string | null;
+  /**
+   * The session came from a passkey recovery link: a restricted session (the
+   * gateway's decision D3) that should lead to a new passkey. Cleared when a
+   * passkey is added, at sign-out and at the next sign-in.
+   */
+  recovery?: boolean;
 }
 
 // Auth state is persisted by redux-persist (see app/store.ts), the same way
 // the Cloud store persists its auth slice — no manual localStorage here.
-const initialState: AuthState = { token: null, userId: null, loginName: null };
+const initialState: AuthState = {
+  token: null,
+  userId: null,
+  loginName: null,
+  recovery: false,
+};
 
 const slice = createSlice({
   name: 'auth',
@@ -28,10 +39,12 @@ const slice = createSlice({
         token: string;
         userId: string;
         loginName?: string;
+        recovery?: boolean;
       }>,
     ) {
       state.token = action.payload.token;
       state.loginName = action.payload.loginName ?? null;
+      state.recovery = action.payload.recovery ?? false;
       state.userId = resolveLoginId(
         action.payload.token,
         action.payload.userId,
@@ -41,6 +54,11 @@ const slice = createSlice({
       state.token = null;
       state.userId = null;
       state.loginName = null;
+      state.recovery = false;
+    },
+    /** A passkey was added: the recovery is done. */
+    recoveryFinished(state) {
+      state.recovery = false;
     },
     // `auth/reset` is intercepted by the root reducer (store.ts) to purge the
     // whole persisted tree. Mirrors the Cloud store's hard sign-out reset.
@@ -50,7 +68,7 @@ const slice = createSlice({
   },
 });
 
-export const { signedIn, signedOut, reset } = slice.actions;
+export const { signedIn, signedOut, recoveryFinished, reset } = slice.actions;
 
 export const selectIsAuthenticated = (state: RootState): boolean =>
   Boolean(state.auth.token);
@@ -58,6 +76,10 @@ export const selectIsAuthenticated = (state: RootState): boolean =>
 // also gets the usr_ id without signing in again.
 export const selectLoginName = (state: RootState): string | null =>
   state.auth.loginName ?? null;
+
+/** True while the session is a passkey recovery session (see AuthState). */
+export const selectRecoverySession = (state: RootState): boolean =>
+  Boolean(state.auth.token && state.auth.recovery);
 
 export const selectUserId = (state: RootState): string | null =>
   resolveLoginId(state.auth.token, state.auth.userId);

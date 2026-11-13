@@ -10,9 +10,20 @@
 //   GET  /__state   → what the portal sent (feedback, stream requests …)
 //   GET  /__assets/logo.svg → the project's brand logo (public config logoUrl)
 //   POST /__reset   → back to the first-visit state; body {"refuseStream":true}
-//                     makes /event-stream answer 403 AiChatChannelRefused
+//                     makes /event-stream answer 403 AiChatChannelRefused;
+//                     {"social":true} offers Google sign-in in the public
+//                     config; {"linkConflict":true} answers the link finish
+//                     with 409 CM-ERRORS-MEMBERSHIP-055
+//   GET  /__provider?next=… → the "provider": sends the browser on to `next`
+//   PKCE (gateway step 16): a code whose start carried `codeChallenge` is
+//        exchanged / finished only with the matching `codeVerifier`, else
+//        CM-ERRORS-MEMBERSHIP-058; a code started without one needs none
+//   POST /v3/membership/userauth/recovery/magic-link/consume → token
+//        "e2e-recovery-token" answers a recovery session once; anything else
+//        (or a second use) is CM-ERRORS-PASSKEY-016
 
 import { createServer } from 'node:http';
+import { createHash } from 'node:crypto';
 
 const PORT = Number(process.env.FAKE_API_PORT ?? 3198);
 const PROJECT = 'pr_e2e';
@@ -43,6 +54,18 @@ let state;
 const reset = (opts = {}) => {
   state = {
     refuseStream: !!opts.refuseStream,
+    social: !!opts.social,
+    linkConflict: !!opts.linkConflict,
+    // What the portal sent on the social routes (social sign-in spec).
+    socialStarts: [],
+    socialExchanges: [],
+    linkStarts: [],
+    linkFinishes: [],
+    // The challenge of the last sign-in start and link start (PKCE).
+    signInChallenge: null,
+    linkChallenge: null,
+    // Passkey recovery link redemptions (social sign-in spec).
+    recoveryConsumes: [],
     sessions: [],
     entries: [],
     feedback: [],
@@ -63,6 +86,16 @@ const refuse = (res, message, errorCode = 'CM-ERRORS-AI-CHAT-009') =>
   json(res, 400, {
     responseStatus: { isSuccess: false, errors: [{ message, errorCode }] },
   });
+
+// PKCE S256 as the gateway checks it: a challenge needs the verifier whose
+// base64url(SHA-256) it is; a verifier with no challenge is refused too.
+const pkceMatches = (challenge, verifier) => {
+  if (!challenge) return !verifier;
+  if (!verifier) return false;
+  return (
+    createHash('sha256').update(verifier).digest('base64url') === challenge
+  );
+};
 
 const readBody = (req) =>
   new Promise((resolve) => {
@@ -202,7 +235,19 @@ const server = createServer(async (req, res) => {
         logoUrl: LOGO_URL,
         iconUrl: LOGO_URL,
       },
-      auth: { socialProviders: [], passkey: false },
+      auth: {
+        socialProviders: state.social ? ['google'] : [],
+        socialSignIn: state.social
+          ? [
+              {
+                provider: 'google',
+                displayName: 'Google',
+                startPath: `/v3/membership/auth/social/google?projectId=${PROJECT}`,
+              },
+            ]
+          : [],
+        passkey: false,
+      },
       aiChat: {
         enabled: true,
         assistants: [
@@ -347,6 +392,134 @@ const server = createServer(async (req, res) => {
         ],
       });
     }
+  }
+
+  // ── Passkey recovery link (MembershipPortalLinks.MagicLink) ──
+  if (
+    path === '/v3/membership/userauth/recovery/magic-link/consume' &&
+    req.method === 'POST'
+  ) {
+    const body = await readBody(req);
+    const used = state.recoveryConsumes.some((c) => c.ok);
+    const ok = body.token === 'e2e-recovery-token' && !used;
+    state.recoveryConsumes.push({
+      token: body.token,
+      authorization: auth ?? null,
+      project: req.headers['norbix-project-id'] ?? null,
+      ok,
+    });
+    if (!ok) {
+      return refuse(
+        res,
+        'The recovery link is invalid or has already been used',
+        'CM-ERRORS-PASSKEY-016',
+      );
+    }
+    return json(res, 200, {
+      accessToken: 'e2e-recovery-session',
+      refreshToken: 'e2e-refresh',
+      expiresInSeconds: 900,
+      remainingCodes: 0,
+    });
+  }
+
+  // ── Social sign-in + link identity (gateway feat/membership-social) ──
+  // The start is a browser navigation straight to this host (not through the
+  // portal proxy): answer what the gateway answers after the provider round,
+  // a redirect to the return page with a one-time code.
+  const socialStart = /^\/v3\/membership\/auth\/social\/([a-z]+)$/.exec(path);
+  if (socialStart && req.method === 'GET') {
+    const returnUrl = url.searchParams.get('returnUrl') ?? '';
+    state.signInChallenge = url.searchParams.get('codeChallenge');
+    state.socialStarts.push({
+      provider: socialStart[1],
+      projectId: url.searchParams.get('projectId'),
+      returnUrl,
+      codeChallenge: state.signInChallenge,
+    });
+    const back = new URL(returnUrl);
+    back.searchParams.set('code', 'e2e-social-code');
+    back.searchParams.set('provider', socialStart[1]);
+    res.writeHead(302, {
+      location: back.toString(),
+      'cache-control': 'no-store',
+    });
+    return res.end();
+  }
+  if (path === '/__provider') {
+    res.writeHead(302, { location: url.searchParams.get('next') ?? '/' });
+    return res.end();
+  }
+  const exchange = /^\/v3\/membership\/auth\/social\/([a-z]+)\/exchange$/.exec(
+    path,
+  );
+  if (exchange && req.method === 'POST') {
+    const body = await readBody(req);
+    state.socialExchanges.push({
+      provider: exchange[1],
+      code: body.code,
+      codeVerifier: body.codeVerifier ?? null,
+      authorization: auth ?? null,
+      project: req.headers['norbix-project-id'] ?? null,
+    });
+    if (body.code !== 'e2e-social-code') {
+      return refuse(res, 'expired', 'CM-ERRORS-MEMBERSHIP-051');
+    }
+    if (!pkceMatches(state.signInChallenge, body.codeVerifier)) {
+      return refuse(res, 'verifier mismatch', 'CM-ERRORS-MEMBERSHIP-058');
+    }
+    return json(res, 200, {
+      bearerToken: TOKEN,
+      userId: 'usr_e2e',
+      displayName: 'E2E User',
+      meta: { credentialVersion: 'v0' },
+    });
+  }
+  const linkStart =
+    /^\/v3\/membership\/auth\/([^/]+)\/link-identity\/start$/.exec(path);
+  if (linkStart && req.method === 'POST') {
+    const body = await readBody(req);
+    state.linkChallenge = body.codeChallenge ?? null;
+    state.linkStarts.push({
+      userId: linkStart[1],
+      ...body,
+      authorization: auth ?? null,
+    });
+    const back = new URL(body.returnUrl);
+    back.searchParams.set('intent', 'link');
+    back.searchParams.set('code', 'e2e-link-code');
+    back.searchParams.set('provider', body.provider);
+    return json(res, 200, {
+      authorizeUrl: `http://127.0.0.1:${PORT}/__provider?next=${encodeURIComponent(back.toString())}`,
+    });
+  }
+  const linkFinish = /^\/v3\/membership\/auth\/([^/]+)\/link-identity$/.exec(
+    path,
+  );
+  if (linkFinish && req.method === 'POST') {
+    const body = await readBody(req);
+    state.linkFinishes.push({
+      userId: linkFinish[1],
+      ...body,
+      authorization: auth ?? null,
+    });
+    if (!pkceMatches(state.linkChallenge, body.codeVerifier)) {
+      return refuse(res, 'verifier mismatch', 'CM-ERRORS-MEMBERSHIP-058');
+    }
+    if (state.linkConflict) {
+      return json(res, 409, {
+        responseStatus: {
+          isSuccess: false,
+          errors: [
+            {
+              message: 'The provider account is linked to another user.',
+              errorCode: 'CM-ERRORS-MEMBERSHIP-055',
+            },
+          ],
+        },
+      });
+    }
+    return json(res, 200, {});
   }
 
   json(res, 404, {

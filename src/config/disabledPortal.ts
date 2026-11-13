@@ -8,9 +8,11 @@
 // managed portal still serves these pages, with the Norbix look (no project
 // name, colours or logo), and nothing else.
 //
-// Not the magic link (/oauth/callback): it signs the user in to the portal so
-// they can add a new passkey there — with the portal off there is nothing to
-// do after it, so it shows "Portal unavailable" like every other page.
+// Not /oauth/callback: it is where social sign-in comes back, and where the
+// passkey recovery e-mail links (#token=…, README "Passkey recovery link").
+// Both sign in to the portal so the user can add a passkey there; with the
+// portal off there is nothing to do after it, so it shows "Portal
+// unavailable" like every other page.
 
 import { ROUTES } from '@/routes';
 import type { ProjectConfig } from '@/types/projectConfig';

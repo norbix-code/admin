@@ -108,8 +108,9 @@ and harvestable at scale. Safety comes from the **shape**, not CORS:
 ## 3. Rendering
 
 - `emailPassword` → render the email + password form.
-- each `socialProviders` entry → render its branded button; clicking it starts
-  the OAuth flow against the API (`/auth/oauth/{provider}/start`).
+- each `socialSignIn` entry → render its button; clicking it sends the browser
+  to `{API host}{startPath}&returnUrl={portal}/oauth/callback` (README, "Social
+  sign-in").
 - `registration` / `passwordReset` → show the corresponding links.
 - `branding.primaryColor` themes the accent color via a CSS custom property,
   so a project's portal looks on-brand without a rebuild.

@@ -2,12 +2,7 @@
 // an access log), query fallback for links sent before, and the token leaves
 // the address bar (gateway docs/tasks/link-tokens-in-fragment.md).
 import { describe, expect, it } from 'vitest';
-import {
-  addressWithout,
-  linkParam,
-  readCallback,
-  removeFromAddressBar,
-} from './linkToken';
+import { addressWithout, linkParam, removeFromAddressBar } from './linkToken';
 
 describe('linkParam — fragment first, query fallback', () => {
   it('reads a new link from the fragment (escaped "+" stays "+")', () => {
@@ -106,37 +101,5 @@ describe('the token leaves the address bar', () => {
     );
     expect(removed).toBe(false);
     expect(calls).toEqual([]);
-  });
-});
-
-describe('readCallback — /oauth/callback', () => {
-  it('new link: token and user id from the fragment', () => {
-    expect(readCallback({ search: '', hash: '#token=t1&userId=u1' })).toEqual({
-      token: 't1',
-      userId: 'u1',
-    });
-  });
-
-  it('old redirect: token from the query', () => {
-    expect(
-      readCallback({ search: '?access_token=t2&user_id=u2', hash: '' }),
-    ).toEqual({
-      token: 't2',
-      userId: 'u2',
-    });
-  });
-
-  it('an error wins', () => {
-    expect(
-      readCallback({ search: '?error=denied', hash: '#token=t1' }),
-    ).toEqual({
-      error: 'denied',
-    });
-  });
-
-  it('no token: says so', () => {
-    expect(readCallback({ search: '', hash: '' })).toEqual({
-      error: 'Sign-in did not complete. No token was returned.',
-    });
   });
 });

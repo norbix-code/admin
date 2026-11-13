@@ -2,7 +2,7 @@
  * Secrets in emailed links and sign-in redirects.
  *
  * New links carry a one-time token in the URL fragment
- * (`/sign-in/reset/confirm#token=…`, `/oauth/callback#token=…`). A browser
+ * (`/sign-in/reset/confirm#token=…`, `/sign-up/invitation#token=…`). A browser
  * never sends the fragment to a server, so no access log (the portal's web
  * server, the ingress, a proxy) can write the token down (gateway
  * docs/tasks/link-tokens-in-fragment.md). Links sent before carry the token
@@ -85,22 +85,4 @@ export const removeFromAddressBar = (
   if (stripped === undefined) return false;
   history.replaceState(history.state, '', stripped);
   return true;
-};
-
-/** The parameter names that carry a sign-in secret on /oauth/callback. */
-export const CALLBACK_TOKEN_NAMES = ['token', 'bearerToken', 'access_token'];
-
-/**
- * What the /oauth/callback URL says: a token (with an optional user id) or
- * an error. Fragment first, then the query.
- */
-export const readCallback = (
-  address: LinkAddress,
-): { token: string; userId: string } | { error: string } => {
-  const token = linkParam(address, ...CALLBACK_TOKEN_NAMES);
-  const userId = linkParam(address, 'userId', 'user_id');
-  const errParam = linkParam(address, 'error', 'error_description');
-  if (errParam) return { error: errParam };
-  if (token) return { token, userId };
-  return { error: 'Sign-in did not complete. No token was returned.' };
 };

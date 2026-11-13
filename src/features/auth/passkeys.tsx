@@ -1,11 +1,18 @@
 import { skipToken } from '@reduxjs/toolkit/query';
 import { useState } from 'react';
 import { Form } from 'react-final-form';
-import { Card, Button, Alert, Spinner, ConfirmDialog } from '@/components/ui';
+import {
+  Card,
+  Button,
+  Alert,
+  Spinner,
+  ConfirmDialog,
+  TextField,
+} from '@/components/ui';
 import { TextInputField } from '@/components/forms/fields';
 import { requiredTrimmedValidator } from '@/components/forms/validators';
-import { useAppSelector } from '@/app/hooks';
-import { selectUserId } from './slice';
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
+import { recoveryFinished, selectUserId } from './slice';
 import {
   useGetUserQuery,
   useStartEmailVerificationMutation,
@@ -30,7 +37,7 @@ export function PasskeysCard() {
   const userId = useAppSelector(selectUserId) ?? '';
   // Wait for the usr_ login id; never query with an empty or numeric id.
   const userArg = userId ? { id: userId } : skipToken;
-  const { data: userData } = useGetUserQuery(userArg);
+  const { data: userData, isLoading: userLoading } = useGetUserQuery(userArg);
   const email =
     userData?.user?.email ?? userData?.user?.generalInfo?.primaryEmail ?? '';
 
@@ -77,7 +84,7 @@ export function PasskeysCard() {
         </ul>
       )}
 
-      <RegisterPasskey email={email} />
+      <RegisterPasskey email={email} askEmail={!email && !userLoading} />
     </Card>
   );
 }
@@ -192,7 +199,20 @@ interface RegisterPasskeyValues {
   friendlyName: string;
 }
 
-function RegisterPasskey({ email }: { email: string }) {
+function RegisterPasskey({
+  email: knownEmail,
+  askEmail,
+}: {
+  email: string;
+  /** No e-mail on the profile (or no profile read): let the user type it. */
+  askEmail: boolean;
+}) {
+  const dispatch = useAppDispatch();
+  // A recovery-link session carries no login id, so the profile e-mail is
+  // not known: the user types it. Registration proves it with the e-mailed
+  // code either way.
+  const [typedEmail, setTypedEmail] = useState('');
+  const email = knownEmail || typedEmail.trim();
   const [startVerification] = useStartEmailVerificationMutation();
   const [confirmVerification] = useConfirmEmailVerificationMutation();
   const [getOptions] = usePasskeyRegistrationOptionsMutation();
@@ -240,6 +260,8 @@ function RegisterPasskey({ email }: { email: string }) {
 
       setDone(true);
       setStep('idle');
+      // A recovery session is done once a new passkey exists.
+      dispatch(recoveryFinished());
     } catch (e) {
       // WebAuthn throws DOMException on cancel/timeout; the API throws on a
       // bad code. Either way, let the user try again.
@@ -272,9 +294,23 @@ function RegisterPasskey({ email }: { email: string }) {
       {error && <Alert kind="error">{error}</Alert>}
 
       {step === 'idle' && (
-        <Button onClick={begin} disabled={!email}>
-          Add a passkey
-        </Button>
+        <div className="flex flex-col gap-3">
+          {askEmail && (
+            <TextField
+              name="passkeyEmail"
+              type="email"
+              label="Your e-mail"
+              autoComplete="email"
+              value={typedEmail}
+              onChange={(e) => setTypedEmail(e.target.value)}
+            />
+          )}
+          <div>
+            <Button onClick={begin} disabled={!email}>
+              Add a passkey
+            </Button>
+          </div>
+        </div>
       )}
 
       {step === 'sendingCode' && (

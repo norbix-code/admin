@@ -43,9 +43,35 @@ export interface ProjectBranding {
   backgroundUrl?: string;
 }
 
+/**
+ * One social sign-in button from the public config (`auth.socialSignIn`, the
+ * ENABLED social sign-in integrations of the env). Never a client id or a
+ * secret.
+ */
+export interface PublicSocialSignIn {
+  /** `google` / `apple` / `microsoft` / `github` / `facebook` / `x` / `okta`. */
+  provider: string;
+  /** The provider's name for the button, e.g. "GitHub". */
+  displayName: string;
+  /**
+   * Relative to the API host, e.g.
+   * `/v3/membership/auth/social/google?projectId=pr_…` (`&env=` when not
+   * PROD). The portal adds `&returnUrl=`.
+   */
+  startPath: string;
+}
+
 export interface ProjectAuthOptions {
-  /** Which social providers exist (always exposed). Rendered as icon links. */
+  /**
+   * Which social providers exist (always exposed). Older field; the buttons
+   * come from `socialSignIn`, which says how to start each one.
+   */
   socialProviders: SocialProviderId[];
+  /**
+   * The social sign-in buttons (always exposed). Absent in a config cached
+   * before the field existed and on older gateways → no buttons.
+   */
+  socialSignIn?: PublicSocialSignIn[];
   /** Whether a passkey flow is configured (always exposed). */
   passkey: boolean;
   /** Identifier methods — only when the project exposes auth; else defaults. */

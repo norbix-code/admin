@@ -69,6 +69,16 @@ export function getNorbixClient(): Norbix {
   return client;
 }
 
+/**
+ * A client for the same project and proxy that carries NO token, for the
+ * anonymous calls whose SDK scope would otherwise send the stored token (a
+ * recovering user often still has an old one, and the gateway may refuse a
+ * stale token on any route). Built fresh on every call; never cached.
+ */
+export function getAnonymousNorbixClient(): Norbix {
+  return build({ ...params, bearerToken: undefined });
+}
+
 /** Drop the cached client so the next getNorbixClient() rebuilds with `params`. */
 function invalidateClient(): void {
   client = undefined;

@@ -52,15 +52,20 @@ screen shows regardless).
 
 ### Social / passkey sign-in
 
-A social button is just a link the backend owns:
+A social button is just a link the backend owns. `auth.socialSignIn` lists
+the enabled social sign-in integrations of the env, each with the path that
+starts it on the API host:
 
 ```
-{api}/auth/{provider}?projectId=pr_{base62}
-{api}/auth/passkey?projectId=pr_{base62}
+"socialSignIn": [
+  { "provider": "google", "displayName": "Google",
+    "startPath": "/v3/membership/auth/social/google?projectId=pr_…" }
+]
 ```
 
-The portal only knows **that** a provider exists; all redirects, client IDs and
-secrets live in the gateway.
+The portal sends the browser to `{API host}{startPath}&returnUrl=…`. All
+redirects, client IDs and secrets live in the gateway; the README's "Social
+sign-in" section has the whole flow.
 
 ## Why this is safe (and why it isn't "CORS")
 

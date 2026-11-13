@@ -12,25 +12,20 @@ import { PasskeySignInButton } from './passkeySignIn';
 import { isWebAuthnAvailable } from './webauthn';
 import { useGetLegalDocumentQuery } from '@/services/publicApi';
 import { ROUTES } from '@/routes';
-import type {
-  ProjectConfig,
-  SocialProviderId,
-  AuthMethod,
-} from '@/types/projectConfig';
-import { getRuntimeApiRoot } from '@/config/runtimeApi';
-import { resolveProjectId } from '@/config/project';
+import type { ProjectConfig, AuthMethod } from '@/types/projectConfig';
+import { selectEcho } from '@/config/slice';
+import { beginPkce } from './pkce';
+import { goTo } from './socialApi';
 import {
   passwordChangeRequiredOf,
   type PasswordChangeState,
 } from './passwordChange';
-
-const SOCIAL_LABEL: Record<SocialProviderId, string> = {
-  google: 'Google',
-  github: 'GitHub',
-  facebook: 'Facebook',
-  apple: 'Apple',
-  microsoft: 'Microsoft',
-};
+import {
+  apiHostRoot,
+  socialButtons,
+  socialReturnUrl,
+  socialStartUrl,
+} from './social';
 
 // Label for the identifier field, derived from the project's auth methods.
 const METHOD_LABEL: Record<AuthMethod, string> = {
@@ -60,8 +55,13 @@ export function Login({ config }: { config: ProjectConfig }) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  // Social sign-in starts on the real API host (echo apiUrl), not the proxy.
+  const apiRoot = apiHostRoot(useAppSelector(selectEcho)?.apiUrl);
 
-  const { socialProviders, passkey, methods } = config.auth;
+  const { passkey, methods } = config.auth;
+  // One button per enabled social sign-in integration of the env; none
+  // without the API host to send the browser to.
+  const social = apiRoot ? socialButtons(config.auth.socialSignIn) : [];
   // Where to go once signed in: home, or the change-password step when the
   // answer says the password breaks the project's current rules. Set before
   // the token lands, so the effect below reads it in the same render.
@@ -106,11 +106,23 @@ export function Login({ config }: { config: ProjectConfig }) {
     }
   };
 
-  // Social sign-in is a full-page navigation to the API; the backend owns the
-  // OAuth redirect + secrets. We only know THAT a provider exists.
-  const socialHref = (provider: SocialProviderId) => {
-    const projectId = resolveProjectId() ?? config.projectId;
-    return `${getRuntimeApiRoot()}/auth/${provider}?projectId=${projectId}`;
+  // Social sign-in is a full-page navigation to the API host, which owns the
+  // provider redirect and the secrets; it comes back to /oauth/callback with
+  // a one-time code (callback.tsx). Each start makes a PKCE pair first: the
+  // verifier stays in this tab, the challenge goes in the URL.
+  // Not disabled while starting: a page restored from the back-forward
+  // cache must not come back with dead buttons. A second click makes a new
+  // pair, and the last navigation wins with the last verifier.
+  const startSocial = async (provider: string, startPath: string) => {
+    const codeChallenge = await beginPkce('signIn', provider);
+    goTo(
+      socialStartUrl(
+        apiRoot ?? '',
+        startPath,
+        socialReturnUrl(window.location.origin, provider),
+        codeChallenge,
+      ),
+    );
   };
 
   return (
@@ -158,21 +170,23 @@ export function Login({ config }: { config: ProjectConfig }) {
         )}
       </Form>
 
-      {(socialProviders.length > 0 || showPasskey) && (
+      {(social.length > 0 || showPasskey) && (
         <div className="mt-6">
           <div className="mb-4 text-center text-xs text-fg-muted">
             or continue with
           </div>
           <div className="flex flex-col gap-2">
             {showPasskey && <PasskeySignInButton />}
-            {socialProviders.map((p) => (
-              <a
-                key={p}
-                href={socialHref(p)}
-                className="inline-flex w-full items-center justify-center rounded-token bg-surface px-4 py-2 text-sm font-medium text-fg ring-1 ring-inset ring-border-token transition hover:bg-app"
+            {social.map((b) => (
+              <Button
+                key={b.provider}
+                type="button"
+                variant="secondary"
+                block
+                onClick={() => void startSocial(b.provider, b.startPath)}
               >
-                Continue with {SOCIAL_LABEL[p]}
-              </a>
+                Continue with {b.displayName}
+              </Button>
             ))}
           </div>
         </div>
