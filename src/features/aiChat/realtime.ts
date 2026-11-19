@@ -3,7 +3,7 @@
  * (`ai-chat:{projectId}:{authId}`), read through the same-origin BFF proxy
  * (`/api/proxy/api/event-stream`).
  *
- * Why `fetch` and not the browser `EventSource` (item file, Findings):
+ * Why `fetch` and not the browser `EventSource`:
  *  - `EventSource` cannot send headers; the API host authenticates the stream
  *    with the bearer token only (no token cookie, no token in the URL).
  *  - `EventSource` cannot see the HTTP status. The gateway answers a channel
@@ -86,7 +86,7 @@ export class SseParser {
  * A ServiceStack message: `cmd.{selector} {json}` in the data field. On a
  * subscribed channel the gateway prefixes the selector with the channel —
  * `ai-chat:pr_x:usr_y@cmd.ai.chat.turn.token {json}` — exactly as the real
- * Hub and Api do (seen on a stack, item stack-admin-portal); only
+ * Hub and Api do; only
  * `cmd.onConnect` comes bare. The prefix is dropped here.
  */
 export interface ServiceStackMessage {

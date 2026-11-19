@@ -1,5 +1,5 @@
 // BFF proxy route: forwards the project header the API host reads and passes
-// server-sent events through as a live stream (tracker step 28). A real local
+// server-sent events through as a live stream. A real local
 // HTTP server stands in for the gateway.
 import { createServer, IncomingHttpHeaders, Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -25,7 +25,7 @@ beforeAll(async () => {
       // The second event is written only when the test asks for it — so the
       // test proves the first one arrived before the upstream finished.
       releaseSecondEvent = () => {
-        res.write('data: cmd.ai.chat.turn.token {"text":"Hi"}\n\n');
+        res.write('data: cmd.update {"text":"Hi"}\n\n');
         res.end();
       };
       return;
@@ -41,6 +41,8 @@ beforeAll(async () => {
   // The stand-in also answers /v3/echo, with no apiUrlTemplate: an install
   // with one API host, so every call goes to API_BASE_URL.
   vi.stubEnv('HUB_BASE_URL', `http://127.0.0.1:${port}`);
+  vi.stubEnv('PROJECT_ID', 'pr_Igqs1AfB4AZIwIJ7K9xgs');
+  vi.stubEnv('API_KEY', 'svc-key');
   route = await import('./route');
 });
 
@@ -59,17 +61,17 @@ const call = (path: string[], headers: Record<string, string>) =>
 
 describe('BFF proxy', () => {
   it('forwards nb-project-id, the bearer token and the SSE reconnect id; drops cookies', async () => {
-    const res = await call(['v3', 'ai', 'chat', 'availability'], {
-      'nb-project-id': 'pr_abc',
-      'norbix-project-id': 'pr_abc',
+    const res = await call(['v3', 'membership', 'users', 'me'], {
+      'nb-project-id': 'pr_Igqs1AfB4AZIwIJ7K9xgs',
+      'norbix-project-id': 'pr_Igqs1AfB4AZIwIJ7K9xgs',
       authorization: 'Bearer t1',
       'last-event-id': '42',
       cookie: 'portal=secret',
-      'x-norbix-project': 'pr_abc',
+      'x-norbix-project': 'pr_Igqs1AfB4AZIwIJ7K9xgs',
     });
 
     expect(res.status).toBe(200);
-    expect(seen.url).toBe('/v3/ai/chat/availability');
+    expect(seen.url).toBe('/v3/membership/users/me');
     expect({
       nbProjectId: seen.headers?.['nb-project-id'],
       norbixProjectId: seen.headers?.['norbix-project-id'],
@@ -78,8 +80,8 @@ describe('BFF proxy', () => {
       cookie: seen.headers?.cookie,
       xNorbixProject: seen.headers?.['x-norbix-project'],
     }).toEqual({
-      nbProjectId: 'pr_abc',
-      norbixProjectId: 'pr_abc',
+      nbProjectId: 'pr_Igqs1AfB4AZIwIJ7K9xgs',
+      norbixProjectId: 'pr_Igqs1AfB4AZIwIJ7K9xgs',
       authorization: 'Bearer t1',
       lastEventId: '42',
       cookie: undefined,
@@ -108,12 +110,39 @@ describe('BFF proxy', () => {
       if (done) break;
       rest += decoder.decode(value);
     }
-    expect(rest).toBe('data: cmd.ai.chat.turn.token {"text":"Hi"}\n\n');
+    expect(rest).toBe('data: cmd.update {"text":"Hi"}\n\n');
   });
 
   it('leaves the cache header of a normal JSON answer alone', async () => {
-    const res = await call(['v3', 'ai', 'chat', 'sessions'], {});
+    const res = await call(['v3', 'membership', 'users', 'me'], {});
     expect(res.headers.get('cache-control')).toBeNull();
     expect(res.headers.get('x-accel-buffering')).toBeNull();
   });
+
+  it.each(['PROJECT_ID', 'API_KEY'])(
+    'answers 503 naming %s when it is missing, and calls nothing upstream',
+    async (missing) => {
+      vi.stubEnv(missing, '');
+      const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+      seen = {};
+
+      // A project header and a pr-<hex> host do not stand in for the setting.
+      const res = await call(['v3', 'membership', 'users', 'me'], {
+        'norbix-project-id': 'pr_Igqs1AfB4AZIwIJ7K9xgs',
+        host: 'pr-75af6526cea04a7486d4be6198c6e709.admin.norbix.ai',
+      });
+
+      expect(res.status).toBe(503);
+      expect(((await res.json()) as { missing: string[] }).missing).toEqual([
+        missing,
+      ]);
+      expect(seen.url).toBeUndefined();
+
+      log.mockRestore();
+      vi.stubEnv(
+        missing,
+        missing === 'PROJECT_ID' ? 'pr_Igqs1AfB4AZIwIJ7K9xgs' : 'svc-key',
+      );
+    },
+  );
 });

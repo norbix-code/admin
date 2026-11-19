@@ -1,8 +1,10 @@
-import { describe, it, expect } from 'vitest';
+// @vitest-environment jsdom
+import { afterEach, describe, it, expect } from 'vitest';
 import {
   hostLabelFromViewId,
-  parseProjectIdFromHost,
+  resolveProjectId,
   viewIdFromHex,
+  viewIdFromHostLabel,
 } from './project';
 
 // Reference pairs produced by .NET with the gateway's own steps
@@ -44,41 +46,60 @@ describe('hostLabelFromViewId', () => {
   });
 });
 
-describe('parseProjectIdFromHost', () => {
-  it('reads the pr-<hex> host label (ProjectId.HostLabel)', () => {
+describe('viewIdFromHostLabel', () => {
+  it('reads a pr-<hex> label (ProjectId.HostLabel), any case', () => {
+    expect(viewIdFromHostLabel('pr-4c0e7b1a8f9d4e2aa1b3c5d7e9f0a1b2')).toBe(
+      'pr_5R4dlqJeXx943tOzSDEwbS',
+    );
+    expect(viewIdFromHostLabel('PR-4C0E7B1A8F9D4E2AA1B3C5D7E9F0A1B2')).toBe(
+      'pr_5R4dlqJeXx943tOzSDEwbS',
+    );
+  });
+
+  it('is a label, not a host: a whole host name is refused', () => {
     expect(
-      parseProjectIdFromHost(
+      viewIdFromHostLabel(
         'pr-4c0e7b1a8f9d4e2aa1b3c5d7e9f0a1b2.admin.norbix.ai',
-      ),
-    ).toBe('pr_5R4dlqJeXx943tOzSDEwbS');
-  });
-
-  it('accepts any case and a port, like ProjectId.TryParseFromHost', () => {
-    expect(
-      parseProjectIdFromHost(
-        'PR-4C0E7B1A8F9D4E2AA1B3C5D7E9F0A1B2.admin.localhost:3100',
-      ),
-    ).toBe('pr_5R4dlqJeXx943tOzSDEwbS');
-  });
-
-  it('no longer reads the pr_<base62> form (browsers lower-case it)', () => {
-    expect(parseProjectIdFromHost('pr_7hk2.admin.norbix.ai')).toBeNull();
-  });
-
-  it('rejects a label with the wrong length or non-hex digits', () => {
-    expect(parseProjectIdFromHost('pr-4c0e7b1a.admin.norbix.ai')).toBeNull();
-    expect(
-      parseProjectIdFromHost(
-        'pr-zz0e7b1a8f9d4e2aa1b3c5d7e9f0a1b2.admin.norbix.ai',
       ),
     ).toBeNull();
   });
 
-  it('returns null for a bare admin host (no project)', () => {
-    expect(parseProjectIdFromHost('admin.norbix.ai')).toBeNull();
+  it('rejects a label with the wrong length or non-hex digits', () => {
+    expect(viewIdFromHostLabel('pr-4c0e7b1a')).toBeNull();
+    expect(
+      viewIdFromHostLabel('pr-zz0e7b1a8f9d4e2aa1b3c5d7e9f0a1b2'),
+    ).toBeNull();
+    expect(viewIdFromHostLabel('localhost')).toBeNull();
+  });
+});
+
+// The project comes only from configuration: the server writes PROJECT_ID
+// into the page as <meta name="norbix-project">.
+describe('resolveProjectId', () => {
+  const setMeta = (content: string) => {
+    const meta = document.createElement('meta');
+    meta.setAttribute('name', 'norbix-project');
+    meta.setAttribute('content', content);
+    document.head.appendChild(meta);
+  };
+
+  afterEach(() => {
+    document.head.innerHTML = '';
+    window.history.replaceState(null, '', '/');
   });
 
-  it('handles single-label hosts (localhost) as no project', () => {
-    expect(parseProjectIdFromHost('localhost')).toBeNull();
+  it('reads the configured project from the page', () => {
+    setMeta(' pr_5R4dlqJeXx943tOzSDEwbS ');
+    expect(resolveProjectId()).toBe('pr_5R4dlqJeXx943tOzSDEwbS');
+  });
+
+  it('is null when the page carries no project', () => {
+    expect(resolveProjectId()).toBeNull();
+    setMeta('  ');
+    expect(resolveProjectId()).toBeNull();
+  });
+
+  it('takes no argument: a host cannot be handed in', () => {
+    expect(resolveProjectId.length).toBe(0);
   });
 });

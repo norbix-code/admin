@@ -1,7 +1,7 @@
 import { expect, Page, test } from '@playwright/test';
 
 /**
- * End-user AI chat smoke (item admin-chat): sign-in state is seeded, the
+ * End-user AI chat smoke: sign-in state is seeded, the
  * public config turns the chat on, a turn is sent and its answer STREAMS in
  * through the BFF proxy from the fake API host (fake-api-host.mjs).
  *

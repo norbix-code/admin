@@ -1,21 +1,23 @@
 import { Link } from 'react-router-dom';
-import { skipToken } from '@reduxjs/toolkit/query';
 import { PageHeader, Card } from '@/components/ui';
-import { useAppSelector } from '@/app/hooks';
-import { selectSelectedProjectId } from '@/features/project/slice';
-import { useGetStructureQuery } from '@/services/portalApi';
-import { navCardsFromStructure } from '@/config/structure';
+import { ROUTES } from '@/routes';
+
+// The pages a signed-in user can open. Add a card here when you add a page.
+const CARDS = [
+  {
+    to: ROUTES.PROFILE,
+    title: 'Profile',
+    desc: 'Update your contact information.',
+  },
+  { to: ROUTES.SECURITY, title: 'Security', desc: 'Password and passkeys.' },
+  {
+    to: ROUTES.PREFERENCES,
+    title: 'Preferences',
+    desc: 'Choose which messages you receive.',
+  },
+];
 
 export function Dashboard() {
-  const projectId = useAppSelector(selectSelectedProjectId);
-  // RTK Query owns the fetch + cache. `skipToken` until a project is resolved.
-  // While loading (or on error) `data` is undefined → the default layout shows.
-  // (The backend picks self-hosted vs managed from API_KEY presence.)
-  const { data: structure } = useGetStructureQuery(
-    projectId ? { projectId } : skipToken,
-  );
-  const cards = navCardsFromStructure(structure);
-
   return (
     <>
       <PageHeader
@@ -23,7 +25,7 @@ export function Dashboard() {
         subtitle="Manage your account settings."
       />
       <div className="grid gap-4 sm:grid-cols-2">
-        {cards.map((c) => (
+        {CARDS.map((c) => (
           <Link key={c.to} to={c.to}>
             <Card className="h-full transition hover:shadow-md">
               <h3 className="text-base font-medium text-fg">{c.title}</h3>
@@ -36,13 +38,21 @@ export function Dashboard() {
   );
 }
 
-export function Placeholder() {
+/**
+ * Safety net for a page that carries no project. The server normally shows
+ * its own setup screen first (app/SetupRequired.tsx), which names what is
+ * missing.
+ */
+export function NotSetUp() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-app px-4 text-center">
-      <h1 className="text-xl font-semibold text-fg">Norbix Admin</h1>
+      <h1 className="text-xl font-semibold text-fg">
+        This portal is not set up yet
+      </h1>
       <p className="mt-2 max-w-sm text-sm text-fg-muted">
-        No project selected. Open this portal at your project address (for
-        example <code>pr-&lt;id&gt;.admin.norbix.ai</code>) to continue.
+        No project is configured. Set <code>PROJECT_ID</code> and{' '}
+        <code>API_KEY</code> on the server that runs this portal, then restart
+        it.
       </p>
     </div>
   );

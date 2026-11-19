@@ -8,7 +8,7 @@ import type { RootState } from '@/app/store';
 import type { ProjectConfig, PublicAiChat } from '@/types/projectConfig';
 
 interface ProjectState {
-  /** The resolved project id (subdomain pin/meta/host lookup), set at boot. */
+  /** The configured project id (PROJECT_ID, read from the page), set at boot. */
   selectedProjectId: string | null;
   config: ProjectConfig | null;
 }

@@ -13,7 +13,7 @@ const NAME = 'E2E Shop';
 const FAKE_API = `http://127.0.0.1:${process.env.FAKE_API_PORT ?? 3198}`;
 const LOGO_URL = `${FAKE_API}/__assets/logo.svg`;
 
-// The `next dev` overlay badge is not part of the product (see chat.spec.ts).
+// The `next dev` overlay badge is not part of the product.
 const hideDevOverlay = (page: Page) =>
   page.evaluate(() =>
     document.querySelectorAll('nextjs-portal').forEach((e) => e.remove()),

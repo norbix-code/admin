@@ -1,190 +1,174 @@
 # Norbix Admin Portal
 
-The **Admin Portal** is the out-of-the-box, self-service portal for a Norbix
-project's **end users**. When a developer doesn't have time to build their own
-user dashboard, this gives their users a ready-made one: sign in, manage
-password & passkeys, edit their profile, and choose which messages they get
-(the communication structure the project defines in Cloud). The Privacy & data
-page (export / delete) is hidden until the gateway has its endpoints. It also hosts the project's public terms & privacy
-policy at a stable URL (usable in app-store listings).
+A ready-made portal for the **users of your Norbix project**. They create an
+account or sign in, change their password and passkeys, edit their profile,
+choose which messages they get, and — when you turn it on — chat with your
+project's AI assistant. It also shows your terms and privacy policy on a public
+page.
 
-It is open source (MIT) and talks **only to the Norbix API gateway** (the
-end-user data plane), never to the Hub.
+This repository is a **starter**. You clone it and host it on your own address
+(for example `admin.example.com`). Norbix does not host it for you.
 
-## How a project is selected
+It is open source (MIT). Change anything you like.
 
-One deployment serves many projects. The project lives in the **host label**
-— the gateway's `ProjectId.HostLabel`, `pr-` + the project Guid as 32
-lower-case hex digits (DNS-safe: no `_`, one case):
+## Quick start
 
-```
-pr-4c0e7b1a8f9d4e2aa1b3c5d7e9f0a1b2.admin.norbix.ai  →  project pr_5R4dlqJeXx943tOzSDEwbS
-admin.norbix.ai                                       →  blank placeholder (no project)
-```
+You need [Node.js](https://nodejs.org) 22.12 or newer and a Norbix project.
 
-The portal turns the label back into the `pr_{base62}` id
-(`ProjectId.ViewId`) the gateway reads (`src/config/project.ts`). Point a
-custom domain at it with a CNAME:
+### 1. Get the code
 
-```
-admin.yourapp.com  CNAME  pr-4c0e7b1a8f9d4e2aa1b3c5d7e9f0a1b2.admin.norbix.ai
+```bash
+git clone https://github.com/norbix-code/admin.git my-portal
+cd my-portal
 ```
 
-See [`docs/`](./docs) for the full architecture, login-config resolution,
-features, implementation plan, and devops.
+### 2. Get two values from Norbix Cloud
+
+Open your project in Norbix Cloud and go to **Project Settings → Admin
+Portal**.
+
+1. Create (or assign) the **Admin Portal service user**.
+2. Issue an **API key** for it. It is shown only once. Keep it secret.
+3. The page shows a ready **`.env` file** with your project id and the key.
+   Copy it.
+
+### 3. Fill in `.env`
+
+```bash
+cp .env.example .env
+```
+
+Paste the file from Norbix Cloud, or set the two values yourself:
+
+```bash
+PROJECT_ID=pr_...
+API_KEY=...
+```
+
+That is all the portal needs. The other settings are optional and explained in
+`.env.example`.
+
+### 4. Run it
+
+```bash
+npm install
+npm run dev
+```
+
+Open <http://localhost:3100>. You see the sign-in page of your project.
+
+If you see **"This portal is not set up yet"**, the page tells you which value
+is missing. Fix `.env` and start again.
+
+### 5. Put it online
+
+With Docker:
+
+```bash
+docker build -f deployments/Dockerfile -t my-portal .
+docker run -p 3100:3100 -e PROJECT_ID=pr_... -e API_KEY=... my-portal
+```
+
+Or on any host with Node:
+
+```bash
+npm run build
+PROJECT_ID=pr_... API_KEY=... npm run start
+```
+
+The portal listens on port `3100`. Point your address (for example
+`admin.example.com`) at it and use https. More in
+[`docs/devops.md`](./docs/devops.md).
+
+### 6. Tell Norbix where your portal is
+
+In Norbix Cloud, open **Project Settings → Brand** and save your portal's
+address (for example `https://admin.example.com`) as **Admin portal URL**.
+
+This does two things for you:
+
+- It adds your address to the project's allowed origins (CORS), so sign-in
+  works from your portal.
+- E-mail links (password reset, invitation) point to your portal.
+
+Done. Your users can sign in.
+
+## What you can change
+
+It is your copy, so everything. The usual things:
+
+- **Colours, logo, fonts.** The portal takes your project's brand from Norbix
+  Cloud. To go further, override the design tokens:
+  [`docs/theming.md`](./docs/theming.md).
+- **The sign-in page.** Which sign-in methods show up comes from your project
+  settings: [`docs/login-resolution.md`](./docs/login-resolution.md). Social
+  sign-in and the passkey recovery link:
+  [`docs/social-sign-in.md`](./docs/social-sign-in.md).
+- **Pages.** The screens are in `src/features/` and the routes in
+  `src/App.tsx`. What each page does: [`docs/features.md`](./docs/features.md).
+  To add a page: write the component in `src/features/<name>/`, add its path
+  to `src/routes.ts`, its `<Route>` to `src/App.tsx`, and a menu entry in the
+  sidebar (`src/components/layouts.tsx`).
+- **Who may create an account.** The sign-up page (`/sign-up`) works when your
+  project lets anyone sign up (Norbix Cloud → Membership → Authorization).
+  Otherwise it shows the project's message, and people join by invitation.
+- **Your own server code.** Add routes under `app/api/`. How the portal's
+  backend works: [`docs/backend.md`](./docs/backend.md).
+
+All docs: [`docs/`](./docs).
+
+## Project layout
+
+| Folder | What is in it |
+| --- | --- |
+| `app/` | The Next.js server: the page shell, the "not set up" page and the backend routes. |
+| `app/api/proxy/` | The proxy the browser calls; it forwards to Norbix. |
+| `app/api/bootstrap/` | Server-only data read with the API key. |
+| `app/lib/` | Server helpers: settings check, project API address. |
+| `src/features/` | The screens: `auth` (sign-in, sign-up, password, passkeys, invitation), `profile`, `preferences`, `legal`, `dashboard`, and the optional `aiChat`. |
+| `src/components/` | Shared UI: buttons, form fields, layouts, icons. |
+| `src/services/` | Calls to Norbix through the SDK. |
+| `src/config/` | Reading the project's public settings (brand, sign-in options). |
+| `tests/e2e/` | Browser tests (Playwright) against a fake Norbix. |
+| `docs/` | How things work, in more detail. |
+
+## Settings
+
+| Variable | Needed | What it is |
+| --- | --- | --- |
+| `PROJECT_ID` | yes | Your project's id (`pr_...`). |
+| `API_KEY` | yes | The API key of the Admin Portal service user. |
+| `ENV` | no | Project environment. Empty means PROD. Use `staging` or `test`. |
+| `HUB_BASE_URL` | no | Default `https://hub.norbix.ai`. |
+| `API_BASE_URL` | no | Default `https://api.norbix.ai`. |
+
+The project is **only** the one in `PROJECT_ID`. The address people open the
+portal at does not change it.
+
+The API key stays on the server. The browser never gets it: the browser talks
+only to the portal, and the portal talks to Norbix.
 
 ## Develop
 
 ```bash
-npm install
-cp .env.example .env     # set VITE_ADMIN_HUB_BASE_URL etc.
-npm run dev              # http://localhost:3100 (uses the published SDK packages)
-npm run build            # next build
-npm run typecheck        # tsc
-npm run lint             # eslint
-npm test                 # vitest
+npm run dev          # http://localhost:3100
+npm test             # unit tests (vitest)
+npm run typecheck    # tsc
+npm run lint         # eslint
+npm run format       # prettier
+npm run build        # next build
+npm run test:e2e     # browser tests against a fake Norbix (Playwright)
 ```
 
-Requires Node ≥ 22.12 (Vite 7).
-
-### Data access via the Norbix SDK
-
-The portal uses **`@norbix.ai/react-redux`** (RTK Query hooks over the typed
-**`@norbix.ai/ts`** SDK) for data access instead of hand-written services
-(`createNorbixApi` + `NorbixProvider`, wired in `src/services/norbix.ts`).
-Both come from npm. To try an SDK change before it is published, see
+Built with Next.js 15 · React 19 · TypeScript · Redux Toolkit (RTK Query) ·
+React Router 7 · Tailwind CSS 3. Data access uses the Norbix SDK
+(`@norbix.ai/ts` and `@norbix.ai/react-redux`, wired in
+`src/services/norbix.ts`). To try an SDK change before it is published, see
 [`docs/sdk-local-development.md`](./docs/sdk-local-development.md).
 
-For local dev without a `pr-<hex>` host, pin a project with
-`NEXT_PUBLIC_ADMIN_PROJECT_ID` in `.env` (a Docker image takes it as
-`--build-arg NEXT_PUBLIC_ADMIN_PROJECT_ID=pr_…`: Next inlines it at build
-time).
-
-## Tech
-
-React 19 · TypeScript 5.9 · Vite 7 (ESM-only, Node ≥ 22.12) · Redux Toolkit
-2.12 (+ RTK Query) · React Router 7 · redux-persist · Tailwind CSS 3.
-
-**Minimal by design.** The runtime dependency list is deliberately tiny
-(5 packages) to shrink the attack surface and supply-chain risk. Forms use
-native React state (no form library) and UI primitives/icons are hand-written
-(no component or icon library). Please don't add runtime dependencies without
+**Few dependencies, on purpose.** UI primitives and icons are hand-written (no
+component or icon library). Please don't add runtime dependencies without
 discussion — see [`SECURITY.md`](./SECURITY.md).
-
-## Endpoint discovery (`/echo`)
-
-The only endpoint you configure is the **Hub URL** (`VITE_ADMIN_HUB_BASE_URL`).
-On boot the portal calls the Hub's `GET /{version}/echo`, which returns the
-**API URL**, **regions**, **release**, **license**, and MJML URL. The portal
-stores that in the `config` slice and the API base query targets the
-discovered `apiUrl` at request time. The env `VITE_ADMIN_API_BASE_URL` is only
-a fallback used when the Hub is unreachable. This mirrors how the Cloud portal
-consumes `/echo`.
-
-The browser itself only ever calls the portal's own `/api/proxy/*`. On an
-install with regions the portal backend sends a project's API calls to the
-project's own host (`pr-<hex>.api.<domain>`, from `/echo` `apiUrlTemplate`),
-because the shared API host refuses a project of another region — see
-[`docs/backend.md`](./docs/backend.md).
-
-## Social sign-in
-
-The sign-in page shows one "Continue with …" button per entry of the public
-config's `auth.socialSignIn` (the enabled social sign-in integrations of the
-env: `provider`, `displayName`, `startPath`). No entries, no buttons.
-
-1. **Start.** The button sends the browser to
-   `{API host}{startPath}&returnUrl={portal}/oauth/callback?via={provider}`.
-   The API host is the origin of `apiUrl` from `/echo`, **not** the
-   same-origin proxy. The gateway sets a short-lived HttpOnly cookie on that
-   host and checks it when the provider calls back, so a start through the
-   proxy would put the cookie on the portal host and end in `state_mismatch`.
-   `startPath` already carries the project and the env (the portal's SDK
-   client knows neither the API host nor the env, so the SDK's
-   `socialSignInUrl` is not used for this one URL). The portal adds
-   `&codeChallenge=…` (PKCE, below).
-2. **Return.** The gateway sends the browser to `/oauth/callback` with a
-   one-time `code` and `provider` (plus `intent=link` for a link), or with
-   `error=<reason>`. No token is ever in the URL. The page takes the code
-   out of the address bar, exchanges it through the proxy with no
-   credentials and with the PKCE verifier (`api.auth.exchangeSocialCode`,
-   2 minutes, once) and stores the bearer JWT exactly like a password
-   sign-in.
-3. **Link (Security → Sign-in methods).** "Link {provider}" calls
-   `api.membership.startLinkIdentity` (with a PKCE challenge) as the
-   signed-in user and sends the
-   browser to the `authorizeUrl` it answers. The return page finishes the
-   link (`finishLinkIdentity`, with the verifier) and goes back to Security with "Linked …", or
-   "This {provider} account belongs to someone else." (409,
-   CM-ERRORS-MEMBERSHIP-055). The page does not list the accounts already
-   linked: the API host has no read of a user's other logins.
-
-**PKCE.** Every sign-in start and link start makes a fresh verifier
-(`createPkcePair`, 32 random bytes) and sends its S256 challenge; the
-exchange and the link finish send the verifier. The verifier is kept in
-`sessionStorage` (this tab only) under `norbix:pkce:<signIn|link>:<provider>`
-and is removed when it is read, used or not, and when a start fails. The
-gateway binds the one-time code to the challenge, so a code URL opened in
-another browser or tab is refused (CM-ERRORS-MEMBERSHIP-058: "This sign-in
-link was started in another browser or tab. Please start again."); a failed
-check uses the code up. Without `sessionStorage` the start goes without a
-challenge, which the gateway still accepts.
-
-**The portal's origin must be allowed.** The gateway accepts `returnUrl` only
-when it is absolute https (plain http only for `localhost`) and its origin is
-the project's own hosted portal (`pr-<hex>.admin.<domain>`, allowed by the
-gateway itself when the installation hosts the Admin Portal) or is in the
-project's CORS union: the saved Allowed Origins (Cloud → Project → Settings →
-Access) plus the origin of every environment admin URL. **A custom domain and
-local development (`http://localhost:3100`) still have to be saved as Allowed
-Origins** (or set as the environment's admin URL). A refused sign-in start
-comes back to the mode's failure page with `error=return_url_not_allowed`
-("This portal's address is not allowed for sign-in. Ask the project owner to
-add it to Allowed origins."); with no failure page, and for the other start
-refusals (049 / 050 / 053 / 059), it is a JSON answer on the API host's page.
-
-**At the provider**, register the callback
-`{API host}/v3/membership/auth/social/{provider}/callback/{projectId}`, where
-the API host is the one `/echo` reports. The gateway builds the provider's
-`redirect_uri` from that public address for the sign-in start and the link
-start (sent through the proxy) alike; a start opened on another host name
-hops once to it.
-
-### Passkey recovery link
-
-The gateway's passkey recovery e-mail links to
-`{portal}/oauth/callback#token=…` (`MembershipPortalLinks.MagicLink`). The
-same page handles it:
-
-- the token is read from the fragment (then the query), taken out of the
-  address bar and redeemed once with
-  `api.membership.consumeMagicLink({ token })` on a client with **no**
-  credentials (a recovering user often still has an old token);
-- the answer is a **restricted** recovery session (`amr=MagicLink`, a
-  15-minute access token, no refresh in the portal). Only its `accessToken`
-  is stored, marked as a recovery; the link token and the refresh token never
-  are;
-- the user lands on Security with "You signed in with a recovery link": add a
-  new passkey (the card asks for the e-mail, which this session cannot read,
-  and proves it with the e-mailed code), or set a new password by e-mail
-  (`/sign-in/reset`). Change password (needs the current one) and linking
-  (needs the login id) are hidden for this session. Adding a passkey ends the
-  recovery mark;
-- refusals in plain words: expired or used (CM-ERRORS-PASSKEY-016), turned
-  off for the project (-015), another environment
-  (CM-ERRORS-MEMBERSHIP-USERS-049), too many attempts (429), and a link with
-  no token.
-
-The portal leads to a new passkey; it does not lock the other pages (the
-gateway does not restrict the session either).
-
-## State management
-
-The store backbone mirrors the Cloud project (`cloud/src/app/store.ts`):
-`combineReducers` → `persistReducer` (RTK Query caches blacklisted) → a root
-reducer with an `auth/reset` hard-purge → a `createStore` factory wiring the
-listener middleware, RTK Query middleware, and `setupListeners`. Adding a new
-feature slice follows the same pattern. See [`src/app/store.ts`](./src/app/store.ts).
 
 ## Quality & security tooling
 

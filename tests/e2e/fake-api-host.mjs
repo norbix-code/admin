@@ -3,7 +3,7 @@
 // test also proves the proxy forwards `nb-project-id` + the bearer token and
 // streams server-sent events as they are written.
 //
-// Shapes follow the gateway (ai/two-audiences, item api-chat-endpoints):
+// Shapes follow the gateway:
 // camelCase JSON, `/v3/ai/chat/*`, the SSE frame `data: cmd.{event} {envelope}`.
 //
 //   node tests/e2e/fake-api-host.mjs            (port FAKE_API_PORT, default 3198)
@@ -15,7 +15,7 @@
 //                     config; {"linkConflict":true} answers the link finish
 //                     with 409 CM-ERRORS-MEMBERSHIP-055
 //   GET  /__provider?next=… → the "provider": sends the browser on to `next`
-//   PKCE (gateway step 16): a code whose start carried `codeChallenge` is
+//   PKCE: a code whose start carried `codeChallenge` is
 //        exchanged / finished only with the matching `codeVerifier`, else
 //        CM-ERRORS-MEMBERSHIP-058; a code started without one needs none
 //   POST /v3/membership/userauth/recovery/magic-link/consume → token
@@ -227,7 +227,6 @@ const server = createServer(async (req, res) => {
   if (path === `/v3/public/projects/${PROJECT}/config`) {
     return json(res, 200, {
       displayName: 'E2E Shop',
-      adminPortalEnabled: true,
       // Brand exposed: logo + icon only. No colours, so the chat goldens keep
       // the default token colours.
       branding: {
@@ -528,5 +527,5 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`fake API host on http://127.0.0.1:${PORT}`);
+  console.warn(`fake API host on http://127.0.0.1:${PORT}`);
 });

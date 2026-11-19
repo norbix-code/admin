@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// Visibility rules of the chat (item prompt, line 3): the launcher renders
+// Visibility rules of the chat: the launcher renders
 // only when the public config says aiChat.enabled; the assistant picker only
 // when the project has more than one assistant. Plus the message toolbar.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

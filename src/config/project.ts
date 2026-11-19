@@ -1,28 +1,13 @@
-// Resolve which project this portal instance is showing.
+// Which project this portal shows, and the two spellings of a project id.
 //
-// Resolution order (first hit wins):
-//   1. Build-time pin (VITE_ADMIN_PROJECT_ID) — self-hosted / custom-domain
-//      builds. No network call: you set it, the portal knows its project.
-//   2. The managed host label — pr-{32 lower-case hex}.admin.norbix.ai, the
-//      gateway's ProjectId.HostLabel (DNS-safe: no '_', one case). It is turned
-//      back into the pr_{base62} id (ProjectId.ViewId) the gateway reads.
-//   3. A <meta name="norbix-project"> tag — emitted by the root layout from
-//      the RUNTIME server env PROJECT_ID (self-hosted public image, see
-//      app/lib/runtimeProject.ts), or injected by an edge/host.
-//   4. Custom domain (e.g. admin.laimingaspilvukas.lt): the host carries no
-//      pr- label, so ASK the managed service — GET hub.norbix.ai/{v}/admin-portal-id
-//      ?host=<host> → { projectId } or 404. Only the managed-service Hub answers
-//      (it owns the host→project map); self-hosted Hubs do not. This is async,
-//      so it lives in resolveProjectIdAsync.
-//   5. null → render the blank "no project" placeholder.
+// The project comes ONLY from configuration: the server variable PROJECT_ID.
+// The server reads it per request and the root layout writes it into the page
+// as <meta name="norbix-project"> (app/layout.tsx, app/lib/portalSetup.ts).
+// The browser reads that tag. The address the portal is opened at never
+// decides the project.
 
-import { NORBIX_HUB_URL } from '@norbix.ai/ts';
-import { PINNED_PROJECT_ID } from './env';
-
-// ProjectId.HostLabel: "pr-" + the Guid as 32 hex digits ("N" format). The
-// gateway parses it case-insensitively (ProjectId.TryParseHostLabel); browsers
-// lower-case the host anyway. The older pr_{base62} host form cannot work in a
-// browser: '_' is not a legal host character and lower-casing breaks base62.
+// ProjectId.HostLabel: "pr-" + the Guid as 32 hex digits ("N" format). It is
+// the first label of a project's own API host (pr-<hex>.api.<domain>).
 const HOST_LABEL = /^pr-([0-9a-f]{32})$/i;
 
 /**
@@ -42,12 +27,6 @@ export function setProjectHeaders(
   }
   return headers;
 }
-
-// The managed-service Hub that owns the custom-domain → projectId mapping. The
-// host is the SDK's canonical public Hub URL (NOT a configurable env): a
-// self-hosted hub is not the managed service and would not answer
-// /admin-portal-id. Resolution by custom domain is a managed-service feature.
-const MANAGED_SERVICE_HUB_ROOT = `${NORBIX_HUB_URL}/v3`;
 
 const BASE62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
@@ -104,68 +83,22 @@ export function hostLabelFromViewId(viewId: string): string | null {
 }
 
 /**
- * Read the project from a managed host (`pr-<hex>.admin.norbix.ai`, any case,
- * optional port). Returns the `pr_{base62}` view id, or null when the first
- * label is not a host label.
+ * A host label (`pr-` + 32 hex digits, any case) → the `pr_{base62}` view id.
+ * Null for anything else. Used to accept a PROJECT_ID written as a host label.
  */
-export function parseProjectIdFromHost(host: string): string | null {
-  const firstLabel = host.split(':')[0].split('.')[0] ?? '';
-  const match = HOST_LABEL.exec(firstLabel);
+export function viewIdFromHostLabel(label: string): string | null {
+  const match = HOST_LABEL.exec(label.trim());
   return match ? viewIdFromHex(match[1]) : null;
 }
 
-function projectFromMetaTag(): string | null {
+/**
+ * The configured project, as the server wrote it into the page. Null when the
+ * portal is not set up (the server then shows the setup page instead of the
+ * app, so the app does not normally see null).
+ */
+export function resolveProjectId(): string | null {
   if (typeof document === 'undefined') return null;
   const meta = document.querySelector('meta[name="norbix-project"]');
   const content = meta?.getAttribute('content')?.trim();
   return content && content.length > 0 ? content : null;
-}
-
-/** Synchronous resolution: pin → host label → meta tag. No network. */
-export function resolveProjectId(host?: string): string | null {
-  if (PINNED_PROJECT_ID) return PINNED_PROJECT_ID;
-
-  const h =
-    host ?? (typeof window !== 'undefined' ? window.location.hostname : '');
-  const fromHost = parseProjectIdFromHost(h);
-  if (fromHost) return fromHost;
-
-  return projectFromMetaTag();
-}
-
-/**
- * Ask the managed service which project a custom domain maps to. Bare GET with
- * no custom headers, so it stays a CORS "simple request" (no preflight); the
- * managed Hub returns the id-only body with a permissive CORS header. Returns
- * null on 404 / network error / non-managed deployment.
- */
-export async function resolveProjectIdByHost(
-  host: string,
-): Promise<string | null> {
-  try {
-    const url = `${MANAGED_SERVICE_HUB_ROOT}/admin-portal-id?host=${encodeURIComponent(host)}`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const body = (await res.json()) as { projectId?: string };
-    const id = body.projectId?.trim();
-    return id && id.length > 0 ? id : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Full resolution: the synchronous paths first, then — for a custom domain —
- * the managed-service host lookup. This is what App boot calls.
- */
-export async function resolveProjectIdAsync(
-  host?: string,
-): Promise<string | null> {
-  const sync = resolveProjectId(host);
-  if (sync) return sync;
-
-  const h =
-    host ?? (typeof window !== 'undefined' ? window.location.hostname : '');
-  if (!h) return null;
-  return resolveProjectIdByHost(h);
 }

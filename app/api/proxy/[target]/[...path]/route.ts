@@ -5,19 +5,29 @@
 //   browser  →  /api/proxy/api/v3/membership/...   →  API_BASE_URL/v3/...
 //   browser  →  /api/proxy/hub/v3/echo             →  HUB_BASE_URL/v3/...
 //
-// On an install with regions the API call goes to the project's own host
-// (pr-<hex>.api.<domain>, from the Hub's /echo `apiUrlTemplate`): the shared
-// host refuses a project another region processes. See app/lib/projectApi.ts.
+// When the Hub announces per-project API hosts, the API call goes to the
+// configured project's own host (pr-<hex>.api.<domain>, from the Hub's /echo
+// `apiUrlTemplate`): the shared host refuses a project another region
+// processes. See app/lib/projectApi.ts. The project is always the configured
+// one (PROJECT_ID) — never the address the portal was opened at. A request
+// whose project header names another project is refused with 400, so this
+// portal cannot be used to reach a different project. While the portal is
+// not set up the proxy answers 503.
 //
 // The user's own JWT is forwarded as-is (Authorization), so authenticated user
 // data still flows on the user's behalf — the backend does not inject the
 // service key here (that is only for the privileged catalog in /api/bootstrap).
 // The proxy is transparent: same method, path, query, body, and the handful of
 // Norbix headers the SDK sends. If the request has no `norbix-env` header and
-// the server sets ENV (a self-hosted staging/test portal), the proxy stamps it.
+// the server sets ENV (a staging/test portal), the proxy stamps it.
 import { NextRequest } from 'next/server';
 import { NORBIX_HUB_URL } from '@norbix.ai/ts';
-import { apiBaseForProject, projectIdOf } from '../../../../lib/projectApi';
+import { apiBaseForProject } from '../../../../lib/projectApi';
+import { runtimeProjectId } from '../../../../lib/runtimeProject';
+import {
+  notSetUpResponse,
+  readyPortalSetup,
+} from '../../../../lib/portalSetup';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,7 +37,7 @@ const HUB_BASE = (process.env.HUB_BASE_URL ?? NORBIX_HUB_URL).replace(
   '',
 );
 
-/** Optional Norbix environment for self-hosted staging/test portals. */
+/** Optional Norbix environment for staging/test portals. */
 const SERVER_ENV =
   process.env.ENV && process.env.ENV.length > 0 ? process.env.ENV : undefined;
 
@@ -40,7 +50,7 @@ const FORWARD_REQUEST_HEADERS = [
   'accept',
   // The project header the API host's global request filter reads
   // (EventMetadataHeaderNames.ProjectId). Without it a data call is not
-  // scoped to the project by header — e.g. /ai/chat/* and /event-stream.
+  // scoped to the project by header.
   'nb-project-id',
   // Canonical tenant-scope headers (AuthStatics.*HeaderKey on the gateway).
   // The credentials auth provider only reads `norbix-project-id`; without it
@@ -49,9 +59,6 @@ const FORWARD_REQUEST_HEADERS = [
   'norbix-project-id',
   'norbix-account-id',
   'norbix-db-id',
-  // Legacy names kept for older gateways.
-  'x-cm-projectid',
-  'x-cm-accountid',
   'norbix-env',
   'nb-region',
   // Server-sent events: EventSource sends Last-Event-ID on reconnect so the
@@ -74,11 +81,29 @@ function isEventStream(res: Response): boolean {
     .startsWith('text/event-stream');
 }
 
+/** The request headers that name a project. */
+const PROJECT_HEADERS = ['norbix-project-id', 'nb-project-id'];
+
+/**
+ * The project header value that is not the configured project, if any.
+ * Both `pr_<base62>` and `pr-<32 hex>` count as the same project.
+ */
+export function otherProjectHeader(
+  headers: Headers,
+  configuredProjectId: string,
+): string | null {
+  for (const name of PROJECT_HEADERS) {
+    const value = headers.get(name)?.trim();
+    if (value && runtimeProjectId(value) !== configuredProjectId) return value;
+  }
+  return null;
+}
+
 async function baseFor(
   target: string,
-  req: NextRequest,
+  projectId: string,
 ): Promise<string | null> {
-  if (target === 'api') return apiBaseForProject(projectIdOf(req.headers));
+  if (target === 'api') return apiBaseForProject(projectId);
   if (target === 'hub') return HUB_BASE;
   return null;
 }
@@ -87,8 +112,21 @@ async function handle(
   req: NextRequest,
   ctx: { params: Promise<{ target: string; path?: string[] }> },
 ): Promise<Response> {
+  const setup = readyPortalSetup();
+  if (!setup) return notSetUpResponse();
+
+  if (otherProjectHeader(req.headers, setup.projectId)) {
+    return Response.json(
+      {
+        error: 'other-project',
+        message: 'This portal serves only its own project.',
+      },
+      { status: 400 },
+    );
+  }
+
   const { target, path } = await ctx.params;
-  const base = await baseFor(target, req);
+  const base = await baseFor(target, setup.projectId);
   if (!base) {
     return new Response('Unknown proxy target', { status: 404 });
   }
@@ -103,9 +141,8 @@ async function handle(
     if (value) headers.set(name, value);
   }
 
-  // Self-hosted staging/test portals set ENV on the server; stamp it as the
-  // norbix-env header when the browser didn't send one. Managed portals derive
-  // the environment from the host (e.g. test.pr_x.admin.norbix.ai) instead.
+  // Staging/test portals set ENV on the server; stamp it as the norbix-env
+  // header when the browser didn't send one.
   if (SERVER_ENV && !headers.has('norbix-env')) {
     headers.set('norbix-env', SERVER_ENV);
   }

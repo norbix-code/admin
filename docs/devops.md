@@ -1,123 +1,75 @@
 # Admin Portal — devops
 
-The Admin image is one Next.js Node server (UI + the `/api/*` backend routes)
-on port `3100`. Sections 2–4 below were written for the first, nginx-based
-plan and are kept for the self-hosted layout only; what the Managed Service
-really runs is in "Managed Service production" right here.
-
-## Managed Service production (checked 2026-11-19)
-
-- **Where.** One `admin` Deployment in the control region only (Virginia, EKS,
-  namespace `norbix-production`), built from `devops/k8s/deployments/managed-service/admin.yaml`
-  by the CDK (`devops/aws_cdk/lib/deployments/kubernetesManifests.ts`). A
-  processing region (Frankfurt) runs only `api` and `mq`; it has no admin pod,
-  no admin DNS name and no admin certificate, on purpose.
-- **Address.** `https://pr-<32 hex>.admin.norbix.ai/` per project (the
-  project's `canonicalAdminUrl`); `*.admin.norbix.ai` and `admin.norbix.ai`
-  are on the control region's load balancer and certificate.
-- **Config.** `HUB_BASE_URL=https://hub.<domain>`, `API_BASE_URL=https://api.<domain>`,
-  no `API_KEY` (a managed pod holds no project key).
-- **A project of another region.** The portal backend sends its API calls to
-  `pr-<hex>.api.<domain>`, which DNS points at the project's region
-  (`docs/backend.md`, "An install with regions"). The end user's requests
-  therefore pass through the portal pod in the control region on their way to
-  the project's region.
-- **Release.** The image is built from this repo's `ms-v*` tag by
-  `devops/release/deploy-release.sh eks <version>` together with the gateway
-  and Cloud. Staging (`norbix.io`) does not build the admin image.
+The portal is one Next.js Node server (UI + the `/api/*` backend routes) on
+port `3100`. You host it. It needs two values, `PROJECT_ID` and `API_KEY`
+([`backend.md`](./backend.md), "Configuration").
 
 ## 1. Docker image
 
-`admin/deployments/Dockerfile` (multi-stage, same shape as Cloud):
+`deployments/Dockerfile` (multi-stage):
 
-1. **build** — `node:22-alpine`, `npm ci`, `next build` (standalone output).
-   Browser values are inlined at build time, so they are build args:
-   - `NEXT_PUBLIC_ADMIN_PROJECT_ID` (optional; pins the project for
-     self-hosted / custom-domain builds)
-   - `NEXT_PUBLIC_ADMIN_CONFIG_MODE` (`dynamic` default, or `static`)
-2. **runtime** — `node server.js` as an unprivileged user on `3100`. Server
-   env at `docker run`: `API_KEY` (service-user key, self-hosted),
-   `HUB_BASE_URL`, `API_BASE_URL`, `ENV`. Managed vs self-hosted comes from
-   `/echo` and from whether `API_KEY` is set.
+1. **build** — `node:22-alpine`, `npm ci`, `next build` with the standalone
+   output (`NEXT_OUTPUT=standalone`). No build args.
+2. **runtime** — `node server.js` as an unprivileged user on `3100`.
 
-Build examples:
-
-```
-docker build -f deployments/Dockerfile -t admin:managed .
-docker build -f deployments/Dockerfile -t admin:selfhosted \
-  --build-arg NEXT_PUBLIC_ADMIN_PROJECT_ID=pr_5R4dlqJeXx943tOzSDEwbS .
+```bash
+docker build -f deployments/Dockerfile -t my-admin-portal .
+docker run -p 3100:3100 \
+  -e PROJECT_ID=pr_5R4dlqJeXx943tOzSDEwbS \
+  -e API_KEY=... \
+  my-admin-portal
 ```
 
-`admin/deployments/nginx/default.conf` matches Cloud's: long cache on hashed
-`/assets/`, no-cache on `index.html`, gzip, security headers, `/healthz`.
+Everything else is read at run time, so the same image works for any project:
 
-## 2. Kubernetes (under `devops/k8s`)
+| Variable | Required | Default |
+| --- | --- | --- |
+| `PROJECT_ID` | yes | — |
+| `API_KEY` | yes | — |
+| `ENV` | no | PROD (set `staging` or `test` for that project environment) |
+| `HUB_BASE_URL` | no | `https://hub.norbix.ai` |
+| `API_BASE_URL` | no | `https://api.norbix.ai` |
+| `HUB_VERSION` / `API_VERSION` | no | `v3` |
 
-New files added alongside the existing `cloud.*`:
+Keep `API_KEY` in your platform's secret store, not in the image and not in
+git.
 
-```
-devops/k8s/
-  config-maps/admin.yaml                  # non-secret VITE_ADMIN_* config
-  secrets/admin.example.yaml              # template for any secret values
-  deployments/managed-service/admin.yaml  # Deployment (managed)
-  deployments/self-hosted/admin.yaml      # Deployment (self-hosted)
-  services/managed-service/admin.yaml     # ClusterIP Service
-  ingress/admin.yaml                      # wildcard ingress for pr-<hex>.admin
-```
+## 2. Without Docker
 
-### ConfigMap (`norbix-admin-config`)
+Any host with Node ≥ 22.12:
 
-Non-secret runtime config: `VITE_ADMIN_RELEASE`, `VITE_ADMIN_API_BASE_URL`,
-`VITE_ADMIN_API_VERSION`. **No** project id and **no** API key here — the
-project comes from the subdomain, and end-user API keys are not a deploy
-concern (same reasoning as Cloud's configmap).
-
-### Deployment / Service
-
-- `replicas: 2` for managed service (stateless SPA behind the ingress),
-  `1` for self-hosted.
-- container port `8080` (image runs unprivileged).
-- readiness/liveness on `/healthz`.
-- `envFrom: norbix-admin-config`.
-
-### Wildcard ingress — the important part
-
-Managed service serves **every** project from one deployment, so the ingress
-matches the wildcard host `*.admin.norbix.ai`:
-
-```
-host: "*.admin.norbix.ai"   →  service: admin
+```bash
+npm ci
+npm run build
+PROJECT_ID=pr_... API_KEY=... npm run start     # http://localhost:3100
 ```
 
-- TLS: a **wildcard certificate** for `*.admin.norbix.ai` (cert-manager /
-  ACME DNS-01, since HTTP-01 can't do wildcards). The bare `admin.norbix.ai`
-  also routes to the same service (renders the blank placeholder).
-- **Custom domains (CNAME):** the customer CNAMEs `admin.<their-domain>` to
-  `pr-<32 hex>.admin.norbix.ai` (the project's host label). For TLS on the custom host we either (a) ask them
-  to terminate TLS at their edge, or (b) issue a per-host cert via cert-manager
-  for the custom domain and add an ingress rule. Because the CNAME target
-  carries the project id, the SPA still resolves the project; for the custom
-  host the portal asks the managed Hub (`/admin-portal-id?host=`) because the
-  visible host has no `pr-` label.
+## 3. In front of it
 
-### Secrets
+- **Your address and TLS.** Point your name (for example `admin.example.com`)
+  at the portal and terminate https at your load balancer or reverse proxy.
+  Social sign-in needs https (plain http works only on `localhost`).
+- **Tell the project.** Save that address in Norbix Cloud as the project's
+  "Admin portal URL" (README, step 6). Without it social sign-in refuses
+  the portal's address and e-mail links do not point to your portal.
+- **Server-sent events.** The proxy passes an event stream through as it is
+  written and sends `X-Accel-Buffering: no`; do not add response buffering
+  or compression for `text/event-stream` in your proxy.
+- **Outgoing calls.** The portal must reach `HUB_BASE_URL`, `API_BASE_URL`
+  and, for a project with its own API host, `pr-<32 hex>.api.<domain>` (same
+  domain as `API_BASE_URL`) over https.
 
-The SPA itself needs no server secrets (it's static). `secrets/admin.example.yaml`
-is a template kept for parity / future use (e.g. a build-time pin delivered via
-secret, or basic-auth on a staging ingress). Documented in
-`devops/k8s/SECRETS.md` style.
+## 4. Health
 
-## 3. Apply order (self-hosted)
+- The image has a `HEALTHCHECK` on `GET /`. It answers `200` as soon as the
+  server is up.
+- A portal that is **not set up** also answers `200` on `/` — with the setup
+  screen. To check the setup, call `GET /api/bootstrap`: `503` with
+  `"error": "portal-not-set-up"` and the missing variable while it is not set
+  up, `200` when it is. The server log has one line starting with
+  `[admin-portal] Not set up:`.
 
-```
-kubectl apply -f namespace/norbix.yaml
-kubectl apply -k config-maps
-kubectl apply -k deployments/self-hosted
-kubectl apply -f ingress/admin.yaml
-```
+## 5. CI in this repository
 
-## 4. CI (later)
-
-Mirror Cloud's buildx pipeline: multi-arch image, one build per flavor,
-pushed to the same registry with tags `admin:community|managed|enterprise`.
-Not built in this pass.
+`.github/workflows/ci.yml` runs lint, format check, typecheck, tests, build
+and `npm audit` on every pull request.

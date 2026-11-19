@@ -1,13 +1,13 @@
 // A project's own API host.
 //
-// An install with regions gives every project its own API host,
+// Norbix gives every project its own API host,
 // pr-<32 hex>.api.<domain>, and announces it in the Hub's /echo as
 // `apiUrlTemplate` (https://{projectHostLabel}.api.<domain>/v3). DNS sends
 // that host to the region that processes the project. The shared host
 // (api.<domain>) refuses a project of another region (CM-ERRORS-PROJECTS-040),
 // so a call for a project must go to the project's host.
 //
-// An install that announces no template (self-hosted, staging) has one API
+// A Hub that announces no template has one API
 // host for everything: these functions answer null and the caller keeps it.
 
 import { hostLabelFromViewId } from './project';

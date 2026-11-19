@@ -3,17 +3,9 @@
 
 import { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import {
-  HomeIcon,
-  UserIcon,
-  ShieldIcon,
-  BellIcon,
-  DocCheckIcon,
-  SignOutIcon,
-} from './icons';
+import { HomeIcon, UserIcon, ShieldIcon, BellIcon, SignOutIcon } from './icons';
 import { DropdownMenu } from './ui';
 import { ROUTES } from '@/routes';
-import { PRIVACY_PAGE_ENABLED } from '@/config/structure';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { selectProjectBranding } from '@/features/project/slice';
 import { projectNameOf } from '@/config/projectConfig';
@@ -53,10 +45,6 @@ const NAV = [
   { to: ROUTES.PROFILE, label: 'Profile', icon: UserIcon },
   { to: ROUTES.SECURITY, label: 'Security', icon: ShieldIcon },
   { to: ROUTES.PREFERENCES, label: 'Preferences', icon: BellIcon },
-  // Hidden until the compliance endpoints exist (see PRIVACY_PAGE_ENABLED).
-  ...(PRIVACY_PAGE_ENABLED
-    ? [{ to: ROUTES.PRIVACY, label: 'Privacy', icon: DocCheckIcon }]
-    : []),
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {

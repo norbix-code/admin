@@ -4,8 +4,7 @@
  * New links carry a one-time token in the URL fragment
  * (`/sign-in/reset/confirm#token=…`, `/sign-up/invitation#token=…`). A browser
  * never sends the fragment to a server, so no access log (the portal's web
- * server, the ingress, a proxy) can write the token down (gateway
- * docs/tasks/link-tokens-in-fragment.md). Links sent before carry the token
+ * server, the ingress, a proxy) can write the token down. Links sent before carry the token
  * in the query (`?token=…`) and keep working until they expire, so the
  * fragment is read first and the query second.
  *

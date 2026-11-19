@@ -43,7 +43,8 @@ const TRANSACTIONAL_CAMPAIGN = 'cmp_1szWVIyZFBVQfs8YKvWBC';
 const TRANSACTIONAL_BATCH = 'cmpb_3lz30bx8TdXmzgIupiG7i';
 
 const BANNER = /You signed in with a recovery link\. Add a new passkey below/;
-const USED = 'This recovery link has expired or was already used. Please ask for a new one.';
+const USED =
+  'This recovery link has expired or was already used. Please ask for a new one.';
 
 let dev: Developer;
 let user: EndUser;
@@ -52,23 +53,49 @@ let mailedLink = '';
 /** Email module on; the default integration must be the Fake one. */
 async function ensureFakeEmail(dev: Developer): Promise<void> {
   if ((await project(dev)).emailEnabled !== true) {
-    must(await dev.hub('PUT', '/notifications/email/enable', {}), 'EnableEmail');
+    must(
+      await dev.hub('PUT', '/notifications/email/enable', {}),
+      'EnableEmail',
+    );
   }
-  const list = await until('the seeded Fake email integration as the default', async () => {
-    const r = must(await dev.hub('GET', '/notifications/email/integrations'), 'GET email integrations');
-    const fake = rows(r).find((i) => i.emailProvider === 'Fake');
-    return fake && r.defaultIntegrationId === fake.viewId ? r : null;
-  });
-  expect(rows(list).filter((i) => i.isEnabled === true).map((i) => i.emailProvider)).toEqual(['Fake']);
+  const list = await until(
+    'the seeded Fake email integration as the default',
+    async () => {
+      const r = must(
+        await dev.hub('GET', '/notifications/email/integrations'),
+        'GET email integrations',
+      );
+      const fake = rows(r).find((i) => i.emailProvider === 'Fake');
+      return fake && r.defaultIntegrationId === fake.viewId ? r : null;
+    },
+  );
+  expect(
+    rows(list)
+      .filter((i) => i.isEnabled === true)
+      .map((i) => i.emailProvider),
+  ).toEqual(['Fake']);
 }
 
 /** Allow magic-link recovery on (read first: the save replaces every passkey setting). */
 async function ensureMagicLinkRecovery(dev: Developer): Promise<void> {
-  const read = async () => (must(await dev.hub('GET', '/membership/passkey/settings'), 'GET passkey settings').result as Json) ?? {};
+  const read = async () =>
+    (must(
+      await dev.hub('GET', '/membership/passkey/settings'),
+      'GET passkey settings',
+    ).result as Json) ?? {};
   const current = await read();
   if (current.allowMagicLinkRecovery === true) return;
-  must(await dev.hub('POST', '/membership/passkey/settings', { ...current, allowMagicLinkRecovery: true }), 'SavePasskeySettings');
-  await until('allowMagicLinkRecovery on', async () => (await read()).allowMagicLinkRecovery === true);
+  must(
+    await dev.hub('POST', '/membership/passkey/settings', {
+      ...current,
+      allowMagicLinkRecovery: true,
+    }),
+    'SavePasskeySettings',
+  );
+  await until(
+    'allowMagicLinkRecovery on',
+    async () => (await read()).allowMagicLinkRecovery === true,
+  );
 }
 
 /** The recovery mail the Fake integration recorded for `email`. */
@@ -76,9 +103,16 @@ async function recordedMail(dev: Developer, email: string): Promise<Json> {
   return until(
     `the magic-link e-mail to ${email} in the Fake integration's log`,
     async () => {
-      const r = await dev.hub('GET', `/notifications/emails/campaigns/${TRANSACTIONAL_CAMPAIGN}/messages?campaignBatchId=${TRANSACTIONAL_BATCH}`);
-      return ((r.json.list as Json | undefined)?.items as Json[] | undefined)?.find(
-        (m) => m.transactionalKind === 'PasskeyMagicLink' && JSON.stringify(m.recipients ?? '').includes(email),
+      const r = await dev.hub(
+        'GET',
+        `/notifications/emails/campaigns/${TRANSACTIONAL_CAMPAIGN}/messages?campaignBatchId=${TRANSACTIONAL_BATCH}`,
+      );
+      return (
+        (r.json.list as Json | undefined)?.items as Json[] | undefined
+      )?.find(
+        (m) =>
+          m.transactionalKind === 'PasskeyMagicLink' &&
+          JSON.stringify(m.recipients ?? '').includes(email),
       );
     },
     60_000,
@@ -89,11 +123,19 @@ test.beforeAll(async () => {
   dev = await preparePortal();
   await ensureFakeEmail(dev);
   await ensureMagicLinkRecovery(dev);
-  user = await registerEndUser(dev, `recovery.${RUN}@example.test`, 'Recover-pass-2026');
+  user = await registerEndUser(
+    dev,
+    `recovery.${RUN}@example.test`,
+    'Recover-pass-2026',
+  );
 });
 
 test('the recovery e-mail is sent through the Fake integration and links to the portal callback', async () => {
-  const requested = await apiCall('POST', '/membership/userauth/recovery/magic-link/request', { email: user.email });
+  const requested = await apiCall(
+    'POST',
+    '/membership/userauth/recovery/magic-link/request',
+    { email: user.email },
+  );
   expect(requested.status).toBe(200);
 
   const mail = await recordedMail(dev, user.email);
@@ -120,14 +162,23 @@ test('the recovery e-mail is sent through the Fake integration and links to the 
   mailedLink = `${env.base}${link.pathname}${link.hash}`;
 });
 
-test('the link signs in to Security with the recovery banner; the link token is in no storage', async ({ page }) => {
+test('the link signs in to Security with the recovery banner; the link token is in no storage', async ({
+  page,
+}) => {
   expect(mailedLink, 'the previous test read the link').not.toBe('');
-  const token = decodeURIComponent(new URL(mailedLink).hash.replace(/^#token=/, ''));
+  const token = decodeURIComponent(
+    new URL(mailedLink).hash.replace(/^#token=/, ''),
+  );
 
-  const consumed = page.waitForResponse((r) => r.url().includes('/membership/userauth/recovery/magic-link/consume'));
+  const consumed = page.waitForResponse((r) =>
+    r.url().includes('/membership/userauth/recovery/magic-link/consume'),
+  );
   await page.goto(mailedLink);
   const answer = await consumed;
-  expect({ status: answer.status(), sentAuthorization: Boolean(answer.request().headers().authorization) }).toEqual({
+  expect({
+    status: answer.status(),
+    sentAuthorization: Boolean(answer.request().headers().authorization),
+  }).toEqual({
     status: 200,
     sentAuthorization: false,
   });
@@ -139,23 +190,37 @@ test('the link signs in to Security with the recovery banner; the link token is 
   // … and the link token is nowhere in the browser's storage; the recovery session is.
   expect((await allBrowserStorage(page)).includes(token)).toBe(false);
   const auth = await portalAuth(page);
-  expect({ hasSession: typeof auth.token === 'string' && auth.token !== token, recovery: auth.recovery }).toEqual({
+  expect({
+    hasSession: typeof auth.token === 'string' && auth.token !== token,
+    recovery: auth.recovery,
+  }).toEqual({
     hasSession: true,
     recovery: true,
   });
 });
 
-test('the same link again is refused (CM-ERRORS-PASSKEY-016)', async ({ browser }) => {
+test('the same link again is refused (CM-ERRORS-PASSKEY-016)', async ({
+  browser,
+}) => {
   expect(mailedLink, 'the first test read the link').not.toBe('');
   const context = await browser.newContext();
   const page = await context.newPage();
   try {
-    const consumed = page.waitForResponse((r) => r.url().includes('/membership/userauth/recovery/magic-link/consume'));
+    const consumed = page.waitForResponse((r) =>
+      r.url().includes('/membership/userauth/recovery/magic-link/consume'),
+    );
     await page.goto(mailedLink);
     const answer = await consumed;
     const body = (await answer.json().catch(() => ({}))) as Json;
-    const code = (((body.responseStatus as Json | undefined)?.errors as Json[] | undefined)?.[0] as Json | undefined)?.errorCode;
-    expect({ status: answer.status(), code }).toEqual({ status: 400, code: 'CM-ERRORS-PASSKEY-016' });
+    const code = (
+      (
+        (body.responseStatus as Json | undefined)?.errors as Json[] | undefined
+      )?.[0] as Json | undefined
+    )?.errorCode;
+    expect({ status: answer.status(), code }).toEqual({
+      status: 400,
+      code: 'CM-ERRORS-PASSKEY-016',
+    });
 
     await expect(page.getByText(USED)).toBeVisible();
     expect((await portalAuth(page)).token ?? null).toBeNull();

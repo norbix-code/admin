@@ -1,6 +1,6 @@
 // Public, unauthenticated project configuration that drives the portal's look
 // (brand) and the login screen (auth). Sourced from the Hub project's Brand +
-// membership settings via the public endpoint, or from a bundled static config.
+// membership settings via the public config endpoint.
 //
 // What the public endpoint returns is gated by two opt-in flags the developer
 // sets in Cloud → Membership → Access:
@@ -68,8 +68,7 @@ export interface ProjectAuthOptions {
    */
   socialProviders: SocialProviderId[];
   /**
-   * The social sign-in buttons (always exposed). Absent in a config cached
-   * before the field existed and on older gateways → no buttons.
+   * The social sign-in buttons (always exposed). Absent → no buttons.
    */
   socialSignIn?: PublicSocialSignIn[];
   /** Whether a passkey flow is configured (always exposed). */
@@ -95,9 +94,9 @@ export interface PublicAiAssistant {
 }
 
 /**
- * End-user AI chat from the public config (`aiChat`, gateway item N). The
- * chat launcher renders only when `enabled`; `assistants` is empty while the
- * chat is off. Absent on older gateways → treated as off.
+ * End-user AI chat from the public config (`aiChat`). The chat launcher
+ * renders only when `enabled`; `assistants` is empty while the chat is off.
+ * Absent → treated as off.
  */
 export interface PublicAiChat {
   enabled: boolean;
@@ -109,24 +108,9 @@ export interface ProjectConfig {
   branding: ProjectBranding;
   auth: ProjectAuthOptions;
   links: ProjectLinks;
-  /**
-   * Coarse pre-login flag from the public config: is the Admin Portal enabled
-   * for this project's MANAGED portal? The managed portal shows a "portal
-   * unavailable" state when false; self-hosted ignores it (its key is the
-   * truth). Defaults to true when the field is absent (older gateways / unknown)
-   * so the portal does not lock itself out before the flag ships.
-   */
-  adminPortalEnabled?: boolean;
   /** End-user AI chat on/off + assistants. Absent → chat off. */
   aiChat?: PublicAiChat;
 }
 
-/** Static / bundled payload shape = ProjectConfig without projectId. */
-export type StaticProjectConfig = Omit<ProjectConfig, 'projectId'>;
-
-// ── Back-compat aliases ─────────────────────────────────────────────
-export type LoginConfig = ProjectConfig;
-export type LoginBranding = ProjectBranding;
-export type LoginAuthOptions = ProjectAuthOptions;
-export type LoginLinks = ProjectLinks;
-export type StaticLoginConfig = StaticProjectConfig;
+/** A project config without the project id: the part defaults and the public config fill in. */
+export type ProjectConfigBody = Omit<ProjectConfig, 'projectId'>;

@@ -1,6 +1,6 @@
 // Tokens in emailed links: fragment first (never sent to a server, never in
 // an access log), query fallback for links sent before, and the token leaves
-// the address bar (gateway docs/tasks/link-tokens-in-fragment.md).
+// the address bar.
 import { describe, expect, it } from 'vitest';
 import { addressWithout, linkParam, removeFromAddressBar } from './linkToken';
 

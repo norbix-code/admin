@@ -78,7 +78,7 @@ it and the data left the server regardless. Safety = response shape, not CORS.
 
 ## The three ways a portal consumes this
 
-1. **Developer passes config** (`VITE_ADMIN_CONFIG_MODE=static`) — brand + auth
+1. **Developer passes config** (`NEXT_PUBLIC_ADMIN_CONFIG_MODE=static`) — brand + auth
    from a bundled `config/projects/{id}.json`. No endpoint call. Fork/fast path.
 2. **Own deployment / fork** — change components/CSS directly.
 3. **Call the Hub** (`dynamic`, default) — fetch this endpoint, merge over the

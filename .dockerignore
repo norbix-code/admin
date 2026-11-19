@@ -52,16 +52,3 @@ coverage
 **/*.test.ts
 **/*.test.tsx
 vitest.config.ts
-
-# Vite-era tooling not used by `next build`
-vite.config.ts
-index.html
-tsconfig.node.json
-
-# Docs, logs and Docker files themselves
-docs
-*.md
-*.log
-npm-debug.log*
-deployments
-.dockerignore

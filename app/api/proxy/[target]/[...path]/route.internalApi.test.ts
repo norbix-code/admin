@@ -29,6 +29,8 @@ beforeAll(async () => {
   const { port } = server.address() as AddressInfo;
   vi.stubEnv('HUB_BASE_URL', `http://127.0.0.1:${port}`);
   vi.stubEnv('API_BASE_URL', `http://127.0.0.1:${port}`);
+  vi.stubEnv('PROJECT_ID', 'pr_Igqs1AfB4AZIwIJ7K9xgs');
+  vi.stubEnv('API_KEY', 'svc-key');
   route = await import('./route');
 });
 

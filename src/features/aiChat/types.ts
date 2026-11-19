@@ -1,6 +1,6 @@
 /**
- * Wire shapes of the end-user AI chat on the API host (`/{v}/ai/chat/*`,
- * gateway item api-chat-endpoints). JSON is camelCase; absent = null.
+ * Wire shapes of the end-user AI chat on the API host (`/{v}/ai/chat/*`).
+ * JSON is camelCase; absent = null.
  *
  * Only what the end-user surface uses is typed. The developer-only entry
  * kinds of the dashboard chat (plan, run.step, question cards, work items,

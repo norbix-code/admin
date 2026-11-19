@@ -5,15 +5,16 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
 /**
- * Admin Portal chat smoke (item admin-chat, tracker step 27).
+ * Browser tests of the portal against a fake Norbix (sign-in, branding, social, chat).
  *
  *   npm run test:e2e           # functional + pixel compare
  *   npm run test:e2e:update    # re-bless the golden PNGs
  *
  * Two servers: a fake API host / Hub (tests/e2e/fake-api-host.mjs) and the
  * portal (`next dev`) with HUB_BASE_URL / API_BASE_URL pointing at the fake,
- * so every browser call goes through the real BFF proxy. The project is
- * pinned (NEXT_PUBLIC_ADMIN_PROJECT_ID) — these env values win over .env.
+ * so every browser call goes through the real BFF proxy. The project and
+ * the service key are set here (PROJECT_ID, API_KEY — a made-up key, the fake
+ * host checks none) — these env values win over .env.
  * Ports 3197 / 3198 are this suite's own, away from `npm run dev` (3100).
  */
 
@@ -52,13 +53,12 @@ export default defineConfig({
       command: `npx next dev -p ${PORTAL_PORT}`,
       cwd: REPO_ROOT,
       env: {
-        NEXT_PUBLIC_ADMIN_PROJECT_ID: 'pr_e2e',
-        NEXT_PUBLIC_ADMIN_CONFIG_MODE: 'dynamic',
+        PROJECT_ID: 'pr_e2e',
         HUB_BASE_URL: FAKE_API,
         API_BASE_URL: FAKE_API,
         HUB_VERSION: 'v3',
         API_VERSION: 'v3',
-        API_KEY: '',
+        API_KEY: 'e2e-service-key',
         ENV: '',
       },
       url: `http://localhost:${PORTAL_PORT}`,

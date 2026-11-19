@@ -1,16 +1,16 @@
-// Next.js config — single self-hostable Docker image, no Vercel dependency.
+// Next.js config.
 //
-// `output: 'standalone'` emits a minimal self-contained Node server (.next/
-// standalone) that serves BOTH the React UI and the BFF route handlers
-// (app/api/*) from one process — so the whole portal ships as ONE container.
+// The Docker image sets NEXT_OUTPUT=standalone: Next then emits a small
+// self-contained Node server (.next/standalone) that serves both the UI and
+// the route handlers in app/api. Without it `npm run build` + `npm run start`
+// run the normal Next server.
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
   reactStrictMode: true,
-  // Dev only. When the dev server is reached under another host name (the
-  // Docker stack serves it as admin.<item>.norbix.test), the HMR socket's
-  // Origin is that host: Next 15 warns, Next 16 blocks. ADMIN_DEV_ORIGINS is
-  // a comma-separated list of host names; unset = Next's default (localhost).
+  // Dev only. When you open the dev server under a host name other than
+  // localhost, list the host names in ADMIN_DEV_ORIGINS (comma-separated) so
+  // hot reload keeps working.
   ...(process.env.ADMIN_DEV_ORIGINS
     ? {
         allowedDevOrigins: process.env.ADMIN_DEV_ORIGINS.split(',')
@@ -19,7 +19,7 @@ const nextConfig = {
       }
     : {}),
   eslint: {
-    // Lint is run separately in CI; don't fail the production build on it.
+    // Lint runs on its own (`npm run lint`), not inside the build.
     ignoreDuringBuilds: true,
   },
 };

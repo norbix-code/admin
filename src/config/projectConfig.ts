@@ -1,12 +1,9 @@
 // Resolves the public ProjectConfig (brand + auth) for the current project and
 // applies branding to the design tokens.
 //
-// Precedence (see docs/login-resolution.md):
-//   1. CONFIG_MODE = 'static'  → load entirely from the bundled per-project
-//      config (config/projects/{id}.json). No endpoint call. Forkers' fast path.
-//   2. CONFIG_MODE = 'dynamic' (default) → start from NEUTRAL DEFAULTS, fetch
-//      the public /config (brand + auth, gated by the project's opt-in flags),
-//      and override. If the call fails, the defaults stand — always renders.
+// The portal starts from neutral defaults, asks the public config endpoint
+// (GET /public/projects/{id}/config) and lets the answer override them. When
+// the call fails the defaults stand, so the portal always renders.
 //
 // What the endpoint returns is gated server-side by two opt-in flags
 // (Cloud → Membership → Access): brand (default ON) and the sensitive auth
@@ -21,14 +18,13 @@
 import type {
   ProjectBranding,
   ProjectConfig,
+  ProjectConfigBody,
   PublicAiChat,
-  StaticProjectConfig,
   SocialProviderId,
   PublicSocialSignIn,
   AuthMethod,
   PasswordPolicy,
 } from '@/types/projectConfig';
-import { CONFIG_MODE } from './env';
 import { getRuntimeApiRoot } from './runtimeApi';
 import { setProjectHeaders } from './project';
 
@@ -55,7 +51,7 @@ export function projectNameOf(
   return name && name !== PLACEHOLDER_DISPLAY_NAME ? name : undefined;
 }
 
-const NEUTRAL_DEFAULTS: StaticProjectConfig = {
+const NEUTRAL_DEFAULTS: ProjectConfigBody = {
   branding: {
     // Neutral placeholder used only before the project config resolves (or when
     // the project is unknown). Once the public config loads, the readable
@@ -78,39 +74,6 @@ const NEUTRAL_DEFAULTS: StaticProjectConfig = {
 const CACHE_KEY = (projectId: string) =>
   `norbix.admin.projectConfig.${projectId}`;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-// Static configs bundled from /config/projects/*.json (filename = project id).
-// `import.meta.glob` is a Vite-only compile-time macro; under Next it is
-// undefined, so the static-config fast path is simply unavailable there (the
-// dynamic public-endpoint path is used instead). Guard the access so the module
-// loads under both bundlers.
-type StaticModuleMap = Record<
-  string,
-  () => Promise<{ default: StaticProjectConfig }>
->;
-
-const staticModules: StaticModuleMap = (() => {
-  const glob = (import.meta as unknown as { glob?: unknown }).glob;
-  if (typeof glob !== 'function') return {};
-  return (glob as (p: string) => StaticModuleMap)(
-    '../../config/projects/*.json',
-  );
-})();
-
-function staticPathFor(projectId: string): string | undefined {
-  return Object.keys(staticModules).find((p) =>
-    p.endsWith(`/${projectId}.json`),
-  );
-}
-
-async function loadStatic(
-  projectId: string,
-): Promise<StaticProjectConfig | null> {
-  const path = staticPathFor(projectId);
-  if (!path) return null;
-  const mod = await staticModules[path]();
-  return mod.default;
-}
 
 function readCache(projectId: string): ProjectConfig | null {
   try {
@@ -137,15 +100,14 @@ function writeCache(projectId: string, config: ProjectConfig): void {
 
 /** Shallow-merge an override config over a base (per top-level section). */
 function merge(
-  base: StaticProjectConfig,
-  override: Partial<StaticProjectConfig> | null,
-): StaticProjectConfig {
+  base: ProjectConfigBody,
+  override: Partial<ProjectConfigBody> | null,
+): ProjectConfigBody {
   if (!override) return base;
   return {
     branding: { ...base.branding, ...(override.branding ?? {}) },
     auth: { ...base.auth, ...(override.auth ?? {}) },
     links: { ...base.links, ...(override.links ?? {}) },
-    adminPortalEnabled: override.adminPortalEnabled ?? base.adminPortalEnabled,
     aiChat: override.aiChat ?? base.aiChat,
   };
 }
@@ -159,9 +121,6 @@ interface PublicConfigResponse {
   // The readable project name — NOT brand-gated, so it's present even when the
   // project does not expose its brand colors/logo. Used as the page title.
   displayName?: string;
-  // Coarse on/off bit for the managed portal (always-safe). Absent on older
-  // gateways → treat as enabled (don't lock out before the flag ships).
-  adminPortalEnabled?: boolean;
   branding?: {
     displayName?: string;
     mainColor?: string;
@@ -169,7 +128,7 @@ interface PublicConfigResponse {
     logoUrl?: string;
     iconUrl?: string;
   } | null;
-  // End-user AI chat (item N): on/off + assistants (id, name, welcome). The
+  // End-user AI chat: on/off + assistants (id, name, welcome). The
   // assistants list is empty while the chat is off. Absent on older gateways.
   aiChat?: {
     enabled?: boolean;
@@ -205,7 +164,7 @@ export function toAiChat(
 
 async function loadDynamicConfig(
   projectId: string,
-): Promise<Partial<StaticProjectConfig> | null> {
+): Promise<Partial<ProjectConfigBody> | null> {
   const url = `${getRuntimeApiRoot()}/public/projects/${projectId}/config`;
   const res = await fetch(url, {
     headers: setProjectHeaders(new Headers(), projectId),
@@ -213,14 +172,7 @@ async function loadDynamicConfig(
   if (!res.ok) return null;
   const r = (await res.json()) as PublicConfigResponse;
 
-  const out: Partial<StaticProjectConfig> = {};
-
-  // Coarse managed-portal on/off flag. Absent (older gateway) → undefined here,
-  // which merge() leaves as the default (enabled) so we never lock out the app
-  // before the flag exists server-side.
-  if (typeof r.adminPortalEnabled === 'boolean') {
-    out.adminPortalEnabled = r.adminPortalEnabled;
-  }
+  const out: Partial<ProjectConfigBody> = {};
 
   if (r.aiChat) out.aiChat = toAiChat(r.aiChat);
 
@@ -264,28 +216,15 @@ async function loadDynamicConfig(
 export async function loadProjectConfig(
   projectId: string,
 ): Promise<ProjectConfig> {
-  // 1. Static mode: bundled config only, no network.
-  if (CONFIG_MODE === 'static') {
-    const fromStatic = await loadStatic(projectId);
-    const resolved = merge(NEUTRAL_DEFAULTS, fromStatic);
-    return { projectId, ...resolved };
-  }
-
-  // 2. Dynamic mode. Serve a fresh-enough cache if present.
   const cached = readCache(projectId);
   if (cached) return cached;
 
-  // Start from defaults, layer a bundled static entry (if any), then the
-  // public endpoint (brand + safe auth always; sensitive auth only if exposed).
-  let resolved = merge(NEUTRAL_DEFAULTS, await loadStatic(projectId));
-
-  // Always ask the endpoint, dev builds included: the same-origin proxy is
-  // always there (env.ts). Skipping it in dev hid brand, auth and the AI chat.
+  let resolved = NEUTRAL_DEFAULTS;
   try {
     const remote = await loadDynamicConfig(projectId);
     if (remote) resolved = merge(resolved, remote);
   } catch {
-    /* endpoint unavailable — defaults (+ static) stand */
+    /* endpoint unavailable — the defaults stand */
   }
 
   const config: ProjectConfig = { projectId, ...resolved };

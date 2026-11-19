@@ -1,43 +1,23 @@
-// Flat ESLint config (ESLint 9). Type-aware linting for the SPA sources.
+// ESLint (flat config). One rule set for the whole repository:
+// the pages and components in src/, the Next.js server code in app/, and the tests.
 import js from '@eslint/js';
 import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
-import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', '.next'] },
   {
-    // SPA sources (Vite). React-refresh rule applies only here.
-    extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ['src/**/*.{ts,tsx}'],
-    languageOptions: {
-      ecmaVersion: 2022,
-      globals: globals.browser,
-    },
-    plugins: {
-      'react-hooks': reactHooks,
-      'react-refresh': reactRefresh,
-    },
-    rules: {
-      ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
-      ],
-    },
+    ignores: [
+      'node_modules',
+      '.next',
+      'test-results',
+      'playwright-report',
+      'next-env.d.ts',
+    ],
   },
   {
-    // Next.js app router: server route handlers + RSC. Node + browser globals,
-    // no react-refresh (that's a Vite-HMR concern). Hooks rules still apply for
-    // client components.
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ['app/**/*.{ts,tsx}'],
+    files: ['**/*.{ts,tsx,js,mjs,cjs}'],
     languageOptions: {
       ecmaVersion: 2022,
       globals: { ...globals.browser, ...globals.node },
@@ -47,11 +27,18 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+      eqeqeq: ['error', 'always'],
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
+  },
+  {
+    // Config files written in CommonJS.
+    files: ['**/*.cjs'],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
 );

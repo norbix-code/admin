@@ -11,13 +11,12 @@ import {
 } from './stack-lib';
 
 /**
- * The wave-3 acceptance, end to end against a running stack (item
- * stack-admin-portal, tracker step 29p): the real Hub and Api, the portal's
+ * The end-user AI chat, end to end against a running stack: the real Hub and Api, the portal's
  * real BFF proxy, and the stack's fake LLM (deployments/stack/fake-llm).
  *
  *   1. as the developer, through REST: LLM integration → fake LLM, assistant
  *      "Support" (own:records + own:profile), "Show AI chat" on, a service user
- *      with the Admin Portal Manager role assigned, the portal on, an end user;
+ *      with the Admin Portal Manager role assigned, an end user;
  *   2. the end user signs in to the portal → the launcher shows → asks
  *      "what is my profile?" → the answer streams in with that user's name and
  *      email → like → the session list;
@@ -58,22 +57,34 @@ const openDrawer = async (page: Page) => {
   return page.getByRole('region', { name: 'Assistant chat' });
 };
 
-test('an end user signs in, asks about the profile, and the answer streams in', async ({ page }) => {
+test('an end user signs in, asks about the profile, and the answer streams in', async ({
+  page,
+}) => {
   await signInPortal(page);
 
   const drawer = await openDrawer(page);
-  await expect(drawer.getByText('Hi! Ask me about your account.')).toBeVisible();
+  await expect(
+    drawer.getByText('Hi! Ask me about your account.'),
+  ).toBeVisible();
 
-  await drawer.getByRole('textbox', { name: 'Message' }).fill('what is my profile?');
+  await drawer
+    .getByRole('textbox', { name: 'Message' })
+    .fill('what is my profile?');
   await drawer.getByRole('button', { name: 'Send' }).click();
 
-  await expect(drawer.locator('[data-entry-kind="user.message"]')).toHaveText(/what is my profile\?/);
-  await expect(drawer.getByTestId('chat-streaming')).toBeVisible({ timeout: 60_000 });
+  await expect(drawer.locator('[data-entry-kind="user.message"]')).toHaveText(
+    /what is my profile\?/,
+  );
+  await expect(drawer.getByTestId('chat-streaming')).toBeVisible({
+    timeout: 60_000,
+  });
   const reply = drawer.locator('[data-entry-kind="assistant.text"]');
   // the fake LLM answers from the profile tool's result: this user's name and email
   await expect(reply).toContainText(endUser.displayName, { timeout: 60_000 });
   await expect(reply).toContainText(endUser.email);
-  await expect(drawer.getByTestId('chat-streaming')).toHaveCount(0, { timeout: 60_000 });
+  await expect(drawer.getByTestId('chat-streaming')).toHaveCount(0, {
+    timeout: 60_000,
+  });
   await expect(reply).toHaveCount(1);
 
   // like → PUT …/feedback 'up' on the stored reply
@@ -86,7 +97,9 @@ test('an end user signs in, asks about the profile, and the answer streams in', 
   await drawer.getByRole('button', { name: 'Expand to full screen' }).click();
   const full = page.getByRole('region', { name: 'Assistant chat' });
   await expect(full.getByTestId('chat-session-row')).toHaveCount(1);
-  await expect(full.locator('[data-entry-kind="assistant.text"]')).toContainText(endUser.email);
+  await expect(
+    full.locator('[data-entry-kind="assistant.text"]'),
+  ).toContainText(endUser.email);
 });
 
 test('the developer sees the tokens under that user and the Support assistant', async () => {
@@ -94,31 +107,49 @@ test('the developer sees the tokens under that user and the Support assistant', 
     .poll(
       async () => {
         const u = await usage(dev);
-        const byUser = ((u.topUsers as Record<string, unknown>[]) ?? []).find((x) => x.id === prepared.endUserId);
-        const byAssistant = ((u.assistants as Record<string, unknown>[]) ?? []).find((x) => x.id === prepared.assistantId);
+        const byUser = ((u.topUsers as Record<string, unknown>[]) ?? []).find(
+          (x) => x.id === prepared.endUserId,
+        );
+        const byAssistant = (
+          (u.assistants as Record<string, unknown>[]) ?? []
+        ).find((x) => x.id === prepared.assistantId);
         return {
           userHasTokens: Number(byUser?.totalTokens ?? 0) > 0,
           assistantHasTokens: Number(byAssistant?.totalTokens ?? 0) > 0,
-          totalHasTokens: Number((u.totals as Record<string, unknown> | undefined)?.totalTokens ?? 0) > 0,
+          totalHasTokens:
+            Number(
+              (u.totals as Record<string, unknown> | undefined)?.totalTokens ??
+                0,
+            ) > 0,
         };
       },
-      { timeout: 60_000, message: 'GET /account/projects/{id}/ai/usage shows the turn' },
+      {
+        timeout: 60_000,
+        message: 'GET /account/projects/{id}/ai/usage shows the turn',
+      },
     )
-    .toEqual({ userHasTokens: true, assistantHasTokens: true, totalHasTokens: true });
+    .toEqual({
+      userHasTokens: true,
+      assistantHasTokens: true,
+      totalHasTokens: true,
+    });
   void seen;
 });
 
-test('"Show AI chat" off → the launcher is gone; the portal itself stays enabled', async ({ page }) => {
+test('"Show AI chat" off → the launcher is gone; the portal itself still works', async ({
+  page,
+}) => {
   await setAiChat(dev, false, prepared.llmIntegrationId);
 
   const cfg = await publicConfig(dev.ctx, prepared.projectId);
-  expect({
-    adminPortalEnabled: cfg.adminPortalEnabled,
-    aiChatEnabled: (cfg.aiChat as Record<string, unknown>).enabled,
-  }).toEqual({ adminPortalEnabled: true, aiChatEnabled: false });
+  expect((cfg.aiChat as Record<string, unknown>).enabled).toBe(false);
 
   await signInPortal(page);
   // the shell is up (a signed-in page), and no launcher anywhere on it
-  await expect(page.getByRole('main').or(page.getByRole('navigation')).first()).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Ask the assistant' })).toHaveCount(0);
+  await expect(
+    page.getByRole('main').or(page.getByRole('navigation')).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Ask the assistant' }),
+  ).toHaveCount(0);
 });
