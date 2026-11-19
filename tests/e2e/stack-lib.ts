@@ -24,9 +24,17 @@ import { APIRequestContext, expect, request } from '@playwright/test';
 
 export const env = {
   base: process.env.E2E_BASE_URL ?? 'http://localhost:3100',
-  hub: (process.env.E2E_HUB_URL ?? 'http://localhost:5001/v3').replace(/\/+$/, ''),
-  api: (process.env.E2E_API_URL ?? 'http://localhost:5002/v3').replace(/\/+$/, ''),
-  llm: (process.env.E2E_LLM_URL ?? 'http://llm.local.norbix.test:4010/v1').replace(/\/+$/, ''),
+  hub: (process.env.E2E_HUB_URL ?? 'http://localhost:5001/v3').replace(
+    /\/+$/,
+    '',
+  ),
+  api: (process.env.E2E_API_URL ?? 'http://localhost:5002/v3').replace(
+    /\/+$/,
+    '',
+  ),
+  llm: (
+    process.env.E2E_LLM_URL ?? 'http://llm.local.norbix.test:4010/v1'
+  ).replace(/\/+$/, ''),
   user: process.env.E2E_USER ?? '',
   pass: process.env.E2E_PASS ?? '',
   projectId: process.env.E2E_PROJECT_ID ?? '',
@@ -71,7 +79,11 @@ export async function call(
 ): Promise<Reply> {
   const res = await ctx.fetch(url, {
     method,
-    headers: { accept: 'application/json', ...(data !== undefined ? { 'content-type': 'application/json' } : {}), ...(headers ?? {}) },
+    headers: {
+      accept: 'application/json',
+      ...(data !== undefined ? { 'content-type': 'application/json' } : {}),
+      ...(headers ?? {}),
+    },
     ...(data !== undefined ? { data } : {}),
   });
   const text = await res.text();
@@ -85,19 +97,29 @@ export async function call(
 }
 
 export const errorsOf = (r: Reply): string =>
-  JSON.stringify((r.json.responseStatus as Json | undefined) ?? r.json).slice(0, 600);
+  JSON.stringify((r.json.responseStatus as Json | undefined) ?? r.json).slice(
+    0,
+    600,
+  );
 
 /** The gateway answers a refused command with HTTP 200 and isSuccess: false. */
 export const succeeded = (r: Reply): boolean =>
-  r.status >= 200 && r.status < 300 && (r.json.responseStatus as Json | undefined)?.isSuccess !== false;
+  r.status >= 200 &&
+  r.status < 300 &&
+  (r.json.responseStatus as Json | undefined)?.isSuccess !== false;
 
 export function must(r: Reply, what: string): Json {
-  if (!succeeded(r)) throw new Error(`${what} failed: HTTP ${r.status} ${errorsOf(r)}`);
+  if (!succeeded(r))
+    throw new Error(`${what} failed: HTTP ${r.status} ${errorsOf(r)}`);
   return r.json;
 }
 
 /** Repeat `probe` until it returns a value (read models fill through projections). */
-export async function until<T>(what: string, probe: () => Promise<T | null | undefined | false>, timeoutMs = 45_000): Promise<T> {
+export async function until<T>(
+  what: string,
+  probe: () => Promise<T | null | undefined | false>,
+  timeoutMs = 45_000,
+): Promise<T> {
   const deadline = Date.now() + timeoutMs;
   let last: unknown;
   while (Date.now() < deadline) {
@@ -110,7 +132,9 @@ export async function until<T>(what: string, probe: () => Promise<T | null | und
     }
     await new Promise((r) => setTimeout(r, 1000));
   }
-  throw new Error(`timed out after ${timeoutMs / 1000}s waiting for ${what} (last: ${String(last)})`);
+  throw new Error(
+    `timed out after ${timeoutMs / 1000}s waiting for ${what} (last: ${String(last)})`,
+  );
 }
 
 /** Every array of objects anywhere in a JSON body, flattened (list shapes differ per route). */
@@ -119,7 +143,8 @@ export function rows(json: unknown): Json[] {
   const walk = (v: unknown) => {
     if (Array.isArray(v)) {
       for (const x of v) {
-        if (x && typeof x === 'object' && !Array.isArray(x)) out.push(x as Json);
+        if (x && typeof x === 'object' && !Array.isArray(x))
+          out.push(x as Json);
         walk(x);
       }
     } else if (v && typeof v === 'object') {
@@ -142,11 +167,17 @@ export interface Developer {
 /** Sign the stack's developer account in on the Hub (cookie + bearer). */
 export async function signInDeveloper(): Promise<Developer> {
   if (!env.user || !env.pass || !env.projectId) {
-    throw new Error('E2E_USER, E2E_PASS and E2E_PROJECT_ID are required (the stack passes them — run `stack up` first)');
+    throw new Error(
+      'E2E_USER, E2E_PASS and E2E_PROJECT_ID are required (the stack passes them — run `stack up` first)',
+    );
   }
   const anon = await request.newContext();
   const signIn = await until('the developer sign-in', async () => {
-    const r = await call(anon, 'POST', `${env.hub}/auth`, { provider: 'credentials', userName: env.user, password: env.pass });
+    const r = await call(anon, 'POST', `${env.hub}/auth`, {
+      provider: 'credentials',
+      userName: env.user,
+      password: env.pass,
+    });
     return succeeded(r) && r.json.bearerToken ? r : null;
   });
   const bearer = String(signIn.json.bearerToken);
@@ -163,11 +194,14 @@ export async function signInDeveloper(): Promise<Developer> {
       call(
         ctx,
         method,
-        method === 'GET' || method === 'DELETE' ? `${env.hub}${path}${path.includes('?') ? '&' : '?'}projectId=${projectId}` : `${env.hub}${path}`,
+        method === 'GET' || method === 'DELETE'
+          ? `${env.hub}${path}${path.includes('?') ? '&' : '?'}projectId=${projectId}`
+          : `${env.hub}${path}`,
         data === undefined ? undefined : { projectId, ...data },
         projectHeaders(projectId),
       ),
-    api: (method, path, data) => call(ctx, method, `${env.api}${path}`, data, projectHeaders(projectId)),
+    api: (method, path, data) =>
+      call(ctx, method, `${env.api}${path}`, data, projectHeaders(projectId)),
   };
 }
 
@@ -181,19 +215,29 @@ export interface Prepared {
 
 /** The project read model as the developer sees it. */
 export async function project(dev: Developer): Promise<Json> {
-  return (must(await dev.hub('GET', `/account/projects/${dev.projectId}`), 'GET project').item as Json) ?? {};
+  return (
+    (must(
+      await dev.hub('GET', `/account/projects/${dev.projectId}`),
+      'GET project',
+    ).item as Json) ?? {}
+  );
 }
 
 async function aiSettings(dev: Developer): Promise<Json> {
-  return (must(await dev.hub('GET', `/account/projects/${dev.projectId}/ai/settings`), 'GET ai settings').result as Json) ?? {};
+  return (
+    (must(
+      await dev.hub('GET', `/account/projects/${dev.projectId}/ai/settings`),
+      'GET ai settings',
+    ).result as Json) ?? {}
+  );
 }
 
 /** 1. The LLM integration: OpenAI shape, endpoint = the stack's fake LLM, enabled, default. */
 async function ensureLlm(dev: Developer): Promise<string> {
   const find = async () =>
-    rows((await dev.hub('GET', '/ai/integrations/llms/integrations')).json).find(
-      (x) => (x.integrationName ?? x.name) === LLM_NAME,
-    );
+    rows(
+      (await dev.hub('GET', '/ai/integrations/llms/integrations')).json,
+    ).find((x) => (x.integrationName ?? x.name) === LLM_NAME);
   const existing = await find();
   if (existing) return String(existing.id ?? existing.viewId);
   const saved = must(
@@ -218,7 +262,9 @@ async function ensureLlm(dev: Developer): Promise<string> {
 /** 2. The "Support" assistant with the own-data toolsets, default. */
 async function ensureAssistant(dev: Developer): Promise<string> {
   const find = async () =>
-    ((await aiSettings(dev)).assistants as Json[] | undefined)?.find((a) => a.name === ASSISTANT_NAME);
+    ((await aiSettings(dev)).assistants as Json[] | undefined)?.find(
+      (a) => a.name === ASSISTANT_NAME,
+    );
   const existing = await find();
   if (existing) return String(existing.id);
   const created = must(
@@ -238,17 +284,25 @@ async function ensureAssistant(dev: Developer): Promise<string> {
 }
 
 /** 3. "Show AI chat" on (UpdateProjectAiSettings.Enabled) with the fake LLM as the project default. */
-export async function setAiChat(dev: Developer, enabled: boolean, llmIntegrationId?: string): Promise<void> {
+export async function setAiChat(
+  dev: Developer,
+  enabled: boolean,
+  llmIntegrationId?: string,
+): Promise<void> {
   const current = await aiSettings(dev);
   must(
     await dev.hub('PUT', `/account/projects/${dev.projectId}/ai/settings`, {
       enabled,
-      defaultLlmIntegrationId: llmIntegrationId ?? current.defaultLlmIntegrationId ?? null,
+      defaultLlmIntegrationId:
+        llmIntegrationId ?? current.defaultLlmIntegrationId ?? null,
       defaultModel: LLM_MODEL,
     }),
     `UpdateProjectAiSettings enabled=${enabled}`,
   );
-  await until(`ai settings enabled=${enabled}`, async () => (await aiSettings(dev)).enabled === enabled);
+  await until(
+    `ai settings enabled=${enabled}`,
+    async () => (await aiSettings(dev)).enabled === enabled,
+  );
   await until(`the public config aiChat.enabled=${enabled}`, async () => {
     const cfg = await publicConfig(dev.ctx, dev.projectId);
     return (cfg.aiChat as Json | undefined)?.enabled === enabled;
@@ -260,8 +314,15 @@ export async function ensureServiceUser(dev: Developer): Promise<string> {
   const assigned = (await project(dev)).adminPortalServiceUserId;
   if (assigned) return String(assigned);
   const roles = rows((await dev.hub('GET', '/membership/roles')).json);
-  const manager = roles.find((r) => r.displayName === 'Admin Portal Manager' || r.name === 'AdminPortalManager');
-  if (!manager) throw new Error(`no "Admin Portal Manager" role in GET /membership/roles: ${JSON.stringify(roles.map((r) => r.name))}`);
+  const manager = roles.find(
+    (r) =>
+      r.displayName === 'Admin Portal Manager' ||
+      r.name === 'AdminPortalManager',
+  );
+  if (!manager)
+    throw new Error(
+      `no "Admin Portal Manager" role in GET /membership/roles: ${JSON.stringify(roles.map((r) => r.name))}`,
+    );
   const created = must(
     await dev.api('POST', '/membership/auth/register/service', {
       userName: SERVICE_USER_NAME,
@@ -274,10 +335,17 @@ export async function ensureServiceUser(dev: Developer): Promise<string> {
   );
   const serviceUserId = String(created.id);
   must(
-    await dev.hub('PUT', `/account/projects/${dev.projectId}/settings/admin-portal/service-user`, { serviceUserId }),
+    await dev.hub(
+      'PUT',
+      `/account/projects/${dev.projectId}/settings/admin-portal/service-user`,
+      { serviceUserId },
+    ),
     'AssignAdminPortalServiceUser',
   );
-  await until('adminPortalServiceUserId on the project', async () => (await project(dev)).adminPortalServiceUserId === serviceUserId);
+  await until(
+    'adminPortalServiceUserId on the project',
+    async () => (await project(dev)).adminPortalServiceUserId === serviceUserId,
+  );
   return serviceUserId;
 }
 
@@ -296,28 +364,44 @@ async function ensureEndUser(dev: Developer): Promise<string> {
       email: endUser.email,
       password: endUser.password,
       roles: ['Authenticated'],
-      userGeneralInfo: { displayName: endUser.displayName, firstName: endUser.firstName, lastName: endUser.lastName },
+      userGeneralInfo: {
+        displayName: endUser.displayName,
+        firstName: endUser.firstName,
+        lastName: endUser.lastName,
+      },
     }),
     'register the end user',
   );
   // the new login reaches the auth store through a projection: sign in until it works
   const anon = await request.newContext();
   try {
-    const signIn = await until('the end user sign-in on the Api host', async () => {
-      const r = await call(
-        anon,
-        'POST',
-        `${env.api}/auth`,
-        { provider: 'credentials', userName: endUser.email, password: endUser.password },
-        projectHeaders(dev.projectId),
-      );
-      return succeeded(r) && r.json.bearerToken ? r : null;
-    });
+    const signIn = await until(
+      'the end user sign-in on the Api host',
+      async () => {
+        const r = await call(
+          anon,
+          'POST',
+          `${env.api}/auth`,
+          {
+            provider: 'credentials',
+            userName: endUser.email,
+            password: endUser.password,
+          },
+          projectHeaders(dev.projectId),
+        );
+        return succeeded(r) && r.json.bearerToken ? r : null;
+      },
+    );
     // `userId` on the auth response is the auth store's numeric id; the usage
     // rows and the chat channel carry the `usr_…` auth id, which the bearer
     // token holds as the `cm_auth_id` claim.
     const token = String(signIn.json.bearerToken);
-    const claims = JSON.parse(Buffer.from(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()) as {
+    const claims = JSON.parse(
+      Buffer.from(
+        token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'),
+        'base64',
+      ).toString(),
+    ) as {
       cm_auth_id?: string;
     };
     return String(claims.cm_auth_id ?? signIn.json.userId ?? '');
@@ -326,12 +410,28 @@ async function ensureEndUser(dev: Developer): Promise<string> {
   }
 }
 
-export async function publicConfig(ctx: APIRequestContext, projectId: string): Promise<Json> {
-  return (await call(ctx, 'GET', `${env.api}/public/projects/${projectId}/config`, undefined, projectHeaders(projectId))).json;
+export async function publicConfig(
+  ctx: APIRequestContext,
+  projectId: string,
+): Promise<Json> {
+  return (
+    await call(
+      ctx,
+      'GET',
+      `${env.api}/public/projects/${projectId}/config`,
+      undefined,
+      projectHeaders(projectId),
+    )
+  ).json;
 }
 
 export async function usage(dev: Developer): Promise<Json> {
-  return (must(await dev.hub('GET', `/account/projects/${dev.projectId}/ai/usage`), 'GET ai usage').result as Json) ?? {};
+  return (
+    (must(
+      await dev.hub('GET', `/account/projects/${dev.projectId}/ai/usage`),
+      'GET ai usage',
+    ).result as Json) ?? {}
+  );
 }
 
 /** The whole set-up, in the order the dashboard needs it. */
@@ -344,8 +444,16 @@ export async function prepareProject(dev: Developer): Promise<Prepared> {
   await until('the public config: chat on, one assistant', async () => {
     const cfg = await publicConfig(dev.ctx, dev.projectId);
     const chat = cfg.aiChat as Json | undefined;
-    return chat?.enabled === true && ((chat?.assistants as Json[]) ?? []).length > 0;
+    return (
+      chat?.enabled === true && ((chat?.assistants as Json[]) ?? []).length > 0
+    );
   });
   expect(endUserId, 'the end user sign-in must return a userId').not.toBe('');
-  return { projectId: dev.projectId, llmIntegrationId, assistantId, serviceUserId, endUserId };
+  return {
+    projectId: dev.projectId,
+    llmIntegrationId,
+    assistantId,
+    serviceUserId,
+    endUserId,
+  };
 }
