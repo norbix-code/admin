@@ -1,8 +1,8 @@
 // The Norbix SDK wiring for the admin portal.
 //
 // We use @norbix.ai/react-redux (RTK Query over the typed @norbix.ai/ts client)
-// instead of hand-written services. The client is project-scoped (projectId
-// from the subdomain) and points at the API URL discovered from /echo. The
+// instead of hand-written services. The client is project-scoped (the
+// configured project) and points at the API URL discovered from /echo. The
 // bearer token comes from the auth slice after sign-in.
 //
 // `createNorbixApi(() => getClient())` reads the client lazily on every
@@ -30,9 +30,8 @@ let params: ClientParams = {
 };
 
 // The client is built LAZILY. The Norbix constructor throws if `projectId` is
-// missing, and at boot (e.g. http://localhost with no pr_ subdomain) there is
-// no project yet — building eagerly would crash the whole app to a blank page
-// before the "no project" placeholder can render. So we only construct on
+// missing, and at boot there is no project yet — building eagerly would crash
+// the whole app to a blank page before the "not set up" message can render. So we only construct on
 // first actual use, and rebuild when params change.
 let client: Norbix | undefined;
 
@@ -96,7 +95,7 @@ export function setNorbixApiBase(apiUrl: string, apiVersion?: string): void {
   invalidateClient();
 }
 
-/** Set/refresh the project id (e.g. once resolved from the subdomain). */
+/** Set/refresh the project id (once read at boot). */
 export function setNorbixProjectId(projectId: string | undefined): void {
   params = { ...params, projectId };
   invalidateClient();

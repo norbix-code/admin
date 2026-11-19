@@ -10,14 +10,18 @@ import { CodeMashHub2 } from '@norbix.ai/ts/types/hub';
 
 // The structure shapes are the GENERATED gateway DTOs (regenerated into the SDK
 // from the AdminPortalStructureDto / AdminPortalModuleDto contracts). Re-exported
-// under the names the rest of the admin code already imports from here.
+// under the names the rest of the admin code already imports from here. The
+// DTO's `adminPortalEnabled` is left out: the portal does not read it.
 export type AdminPortalModule = CodeMashHub2.AdminPortalModuleDto;
-export type AdminPortalStructure = CodeMashHub2.AdminPortalStructureDto;
+export type AdminPortalStructure = Omit<
+  CodeMashHub2.AdminPortalStructureDto,
+  'adminPortalEnabled'
+>;
 
 /**
  * The part of GET /api/bootstrap the screens use: the communication structure
  * Cloud defines (project NotificationSettings), read server-side with the
- * service-user key. Null when the backend has no key or the read failed.
+ * service-user key. Null when the read failed.
  */
 export interface PortalBootstrap {
   marketingPreferences: CodeMashHub2.NotificationSettingsDto | null;
@@ -29,26 +33,21 @@ export const portalApi = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: '/api' }),
   tagTypes: ['Structure', 'Bootstrap'],
   endpoints: (builder) => ({
-    // GET /api/structure?projectId=… — the backend reads the real structure
-    // server-side and always returns a usable layout. The backend itself decides
-    // self-hosted (public endpoint + key) vs managed (private internal endpoint)
-    // from whether API_KEY is configured — no client hint needed.
+    // GET /api/structure — the backend reads the real structure server-side
+    // (as the service user, for the configured project) and always returns a
+    // usable layout. The project id is only the cache key here: the backend
+    // uses its own PROJECT_ID.
     getStructure: builder.query<AdminPortalStructure, { projectId: string }>({
-      query: ({ projectId }) => ({
-        url: `/structure?projectId=${encodeURIComponent(projectId)}`,
-        method: 'GET',
-      }),
+      query: () => ({ url: '/structure', method: 'GET' }),
       providesTags: (_result, _error, arg) => [
         { type: 'Structure', id: arg.projectId },
       ],
     }),
-    // GET /api/bootstrap?projectId=… — privileged catalogs (communication
-    // structure) fetched by the backend with the service key, never the browser.
+    // GET /api/bootstrap — privileged catalogs (communication structure)
+    // fetched by the backend with the service key, never the browser. The
+    // project id is only the cache key.
     getBootstrap: builder.query<PortalBootstrap, { projectId: string }>({
-      query: ({ projectId }) => ({
-        url: `/bootstrap?projectId=${encodeURIComponent(projectId)}`,
-        method: 'GET',
-      }),
+      query: () => ({ url: '/bootstrap', method: 'GET' }),
       providesTags: (_result, _error, arg) => [
         { type: 'Bootstrap', id: arg.projectId },
       ],

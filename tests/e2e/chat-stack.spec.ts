@@ -108,14 +108,11 @@ test('the developer sees the tokens under that user and the Support assistant', 
   void seen;
 });
 
-test('"Show AI chat" off → the launcher is gone; the portal itself stays enabled', async ({ page }) => {
+test('"Show AI chat" off → the launcher is gone; the portal itself still works', async ({ page }) => {
   await setAiChat(dev, false, prepared.llmIntegrationId);
 
   const cfg = await publicConfig(dev.ctx, prepared.projectId);
-  expect({
-    adminPortalEnabled: cfg.adminPortalEnabled,
-    aiChatEnabled: (cfg.aiChat as Record<string, unknown>).enabled,
-  }).toEqual({ adminPortalEnabled: true, aiChatEnabled: false });
+  expect((cfg.aiChat as Record<string, unknown>).enabled).toBe(false);
 
   await signInPortal(page);
   // the shell is up (a signed-in page), and no launcher anywhere on it

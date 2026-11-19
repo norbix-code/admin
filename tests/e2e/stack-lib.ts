@@ -17,7 +17,6 @@ import { APIRequestContext, expect, request } from '@playwright/test';
  *   GET  /v3/membership/roles                                   the role list (name of "Admin Portal Manager")
  *   POST /v3/membership/auth/register/service                   a service-login user with roles (Api host)
  *   PUT  /v3/account/projects/{id}/settings/admin-portal/service-user   AssignAdminPortalServiceUser
- *   PUT  /v3/account/projects/{id}/admin-portal/enabled         SetAdminPortalEnabled
  *   POST /v3/membership/auth/register/email                     the end user (Api host)
  *   GET  /v3/public/projects/{id}/config                        what the portal reads at boot
  *   GET  /v3/account/projects/{id}/ai/usage                     tokens per user / assistant
@@ -282,13 +281,6 @@ export async function ensureServiceUser(dev: Developer): Promise<string> {
   return serviceUserId;
 }
 
-/** 5. The managed portal on. */
-export async function ensurePortalEnabled(dev: Developer): Promise<void> {
-  if ((await project(dev)).adminPortalEnabled === true) return;
-  must(await dev.hub('PUT', `/account/projects/${dev.projectId}/admin-portal/enabled`, { enabled: true }), 'SetAdminPortalEnabled');
-  await until('adminPortalEnabled on the project', async () => (await project(dev)).adminPortalEnabled === true);
-}
-
 /**
  * 6. The end user, registered through the membership API (never a contact —
  * contacts carry roles [null]) WITH the built-in Authenticated role named
@@ -348,12 +340,11 @@ export async function prepareProject(dev: Developer): Promise<Prepared> {
   const assistantId = await ensureAssistant(dev);
   await setAiChat(dev, true, llmIntegrationId);
   const serviceUserId = await ensureServiceUser(dev);
-  await ensurePortalEnabled(dev);
   const endUserId = await ensureEndUser(dev);
-  await until('the public config: portal on, chat on, one assistant', async () => {
+  await until('the public config: chat on, one assistant', async () => {
     const cfg = await publicConfig(dev.ctx, dev.projectId);
     const chat = cfg.aiChat as Json | undefined;
-    return cfg.adminPortalEnabled === true && chat?.enabled === true && ((chat?.assistants as Json[]) ?? []).length > 0;
+    return chat?.enabled === true && ((chat?.assistants as Json[]) ?? []).length > 0;
   });
   expect(endUserId, 'the end user sign-in must return a userId').not.toBe('');
   return { projectId: dev.projectId, llmIntegrationId, assistantId, serviceUserId, endUserId };

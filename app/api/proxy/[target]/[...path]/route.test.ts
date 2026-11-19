@@ -41,6 +41,8 @@ beforeAll(async () => {
   // The stand-in also answers /v3/echo, with no apiUrlTemplate: an install
   // with one API host, so every call goes to API_BASE_URL.
   vi.stubEnv('HUB_BASE_URL', `http://127.0.0.1:${port}`);
+  vi.stubEnv('PROJECT_ID', 'pr_Igqs1AfB4AZIwIJ7K9xgs');
+  vi.stubEnv('API_KEY', 'svc-key');
   route = await import('./route');
 });
 
@@ -116,4 +118,31 @@ describe('BFF proxy', () => {
     expect(res.headers.get('cache-control')).toBeNull();
     expect(res.headers.get('x-accel-buffering')).toBeNull();
   });
+
+  it.each(['PROJECT_ID', 'API_KEY'])(
+    'answers 503 naming %s when it is missing, and calls nothing upstream',
+    async (missing) => {
+      vi.stubEnv(missing, '');
+      const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+      seen = {};
+
+      // A project header and a pr-<hex> host do not stand in for the setting.
+      const res = await call(['v3', 'membership', 'users', 'me'], {
+        'norbix-project-id': 'pr_Igqs1AfB4AZIwIJ7K9xgs',
+        host: 'pr-75af6526cea04a7486d4be6198c6e709.admin.norbix.ai',
+      });
+
+      expect(res.status).toBe(503);
+      expect(((await res.json()) as { missing: string[] }).missing).toEqual([
+        missing,
+      ]);
+      expect(seen.url).toBeUndefined();
+
+      log.mockRestore();
+      vi.stubEnv(
+        missing,
+        missing === 'PROJECT_ID' ? 'pr_Igqs1AfB4AZIwIJ7K9xgs' : 'svc-key',
+      );
+    },
+  );
 });

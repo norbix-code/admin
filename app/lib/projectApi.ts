@@ -1,15 +1,13 @@
 // Which API host the portal backend calls for a project.
 //
-// One managed portal serves the projects of every region, and the shared API
-// host refuses a project that another region processes
-// (CM-ERRORS-PROJECTS-040). The Hub's /echo announces the per-project host as
-// `apiUrlTemplate`; this module reads it once (cached) and builds the
-// project's own host from it. An install that announces no template has one
-// API host: API_BASE_URL is used, exactly as before.
+// Norbix processes a project in one region, and the shared API host refuses a
+// project that another region processes (CM-ERRORS-PROJECTS-040). The Hub's
+// /echo announces the per-project host as `apiUrlTemplate`; this module reads
+// it once (cached) and builds the configured project's own host from it. An
+// install that announces no template has one API host: API_BASE_URL is used.
 //
-// No setting switches this on: it follows what the Hub of the install says.
+// No setting switches this on: it follows what the Hub says.
 import { NORBIX_HUB_URL, NORBIX_API_URL } from '@norbix.ai/ts';
-import { parseProjectIdFromHost } from '@/config/project';
 import { projectApiBase, sharedApiHostOf } from '@/config/projectApiHost';
 
 const HUB_BASE = (process.env.HUB_BASE_URL ?? NORBIX_HUB_URL).replace(
@@ -62,20 +60,6 @@ export async function apiUrlTemplate(): Promise<string | null> {
     await reading;
   }
   return template;
-}
-
-/**
- * The project a proxied call is for: the project header the SDK sends, else
- * the portal's own pr-<hex> host. Only used to pick the upstream host — the
- * gateway still decides what the caller may do.
- */
-export function projectIdOf(headers: Headers): string | null {
-  return (
-    headers.get('norbix-project-id')?.trim() ||
-    headers.get('nb-project-id')?.trim() ||
-    parseProjectIdFromHost(headers.get('host') ?? '') ||
-    null
-  );
 }
 
 /** The host (with port) of API_BASE_URL; null when it is not an address. */

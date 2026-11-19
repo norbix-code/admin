@@ -24,8 +24,7 @@ const dynamicBaseQuery: BaseQueryFn<
   FetchBaseQueryError
 > = (args, apiArg, extra) => {
   const state = apiArg.getState() as RootState;
-  // The project resolved at boot (custom domains included — their id comes
-  // from the async host lookup, which resolveProjectId() alone cannot see).
+  // The configured project, as resolved at boot.
   const projectId = selectSelectedProjectId(state) ?? resolveProjectId();
   // Endpoints write `{projectId}` in their url; fill it in here.
   const fill = (u: string) => u.replace('{projectId}', projectId ?? '');

@@ -9,13 +9,16 @@
 //     catalog                     a user opts in/out of)
 //
 // The privileged catalogs are fetched with the SERVICE-USER API KEY held only
-// on the server (see app/lib/serverNorbix.ts). The browser never sees the key
-// and never calls these privileged Hub endpoints directly. The user's OWN
-// preference values stay a direct browser→API call with the user's JWT.
+// on the server (API_KEY, see app/lib/serverNorbix.ts), for the configured
+// project (PROJECT_ID) — nothing the browser sends can change the project.
+// The browser never sees the key and never calls these privileged Hub
+// endpoints directly. The user's OWN preference values stay a call with the
+// user's JWT through the proxy.
 //
 // Runtime is Node (not edge) because the SDK + the key live server-side.
-import { NextRequest, NextResponse } from 'next/server';
-import { serviceClientForProject, hasServiceKey } from '../../lib/serverNorbix';
+import { NextResponse } from 'next/server';
+import { serviceClient } from '../../lib/serverNorbix';
+import { notSetUpResponse, readyPortalSetup } from '../../lib/portalSetup';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,14 +35,11 @@ interface BootstrapResponse {
   warnings: string[];
 }
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
-  const projectId = req.nextUrl.searchParams.get('projectId')?.trim();
-  if (!projectId) {
-    return NextResponse.json(
-      { error: 'projectId is required' },
-      { status: 400 },
-    );
-  }
+export async function GET(): Promise<Response> {
+  const setup = readyPortalSetup();
+  if (!setup) return notSetUpResponse();
+  const { projectId } = setup;
+  const client = serviceClient(setup);
 
   const warnings: string[] = [];
   const out: BootstrapResponse = {
@@ -51,15 +51,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     warnings,
   };
 
-  if (!hasServiceKey()) {
-    // Without the key the backend can still serve the public brand/auth
-    // (below), but not the privileged catalogs — flag it rather than 500.
-    warnings.push('service-key-missing');
-  }
-
-  // 1) Brand + auth — public, no key needed. Failure is non-fatal.
+  // 1) Brand + auth — the public config. Failure is non-fatal.
   try {
-    const client = serviceClientForProject(projectId);
     const config = await client.api.public.getPublicProjectConfig({
       projectId,
     });
@@ -69,30 +62,26 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     warnings.push('config-unavailable');
   }
 
-  // 2) Privileged catalogs — only attempt with the service key.
-  if (hasServiceKey()) {
-    const client = serviceClientForProject(projectId);
+  // 2) Privileged catalogs, as the service user.
+  try {
+    const rolesResp = await client.hub.membership.getRoles({});
+    out.roles = (rolesResp.roles ?? []).map((r) => ({
+      id: r.viewId,
+      name: r.name,
+      displayName: r.displayName ?? undefined,
+    }));
+  } catch {
+    warnings.push('roles-unavailable');
+  }
 
-    try {
-      const rolesResp = await client.hub.membership.getRoles({});
-      out.roles = (rolesResp.roles ?? []).map((r) => ({
-        id: r.viewId,
-        name: r.name,
-        displayName: r.displayName ?? undefined,
-      }));
-    } catch {
-      warnings.push('roles-unavailable');
-    }
-
-    try {
-      // The marketing-preference STRUCTURE rides on the project read model
-      // (NotificationSettings). We return only the catalog, never any user's
-      // values.
-      const projectResp = await client.hub.account.getProject({ projectId });
-      out.marketingPreferences = projectResp.item?.notificationSettings ?? null;
-    } catch {
-      warnings.push('preferences-unavailable');
-    }
+  try {
+    // The marketing-preference STRUCTURE rides on the project read model
+    // (NotificationSettings). We return only the catalog, never any user's
+    // values.
+    const projectResp = await client.hub.account.getProject({ projectId });
+    out.marketingPreferences = projectResp.item?.notificationSettings ?? null;
+  } catch {
+    warnings.push('preferences-unavailable');
   }
 
   return NextResponse.json(out, {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { NorbixProvider } from '@norbix.ai/react-redux';
 import { ROUTES } from '@/routes';
-import { resolveProjectIdAsync } from '@/config/project';
+import { resolveProjectId } from '@/config/project';
 import { loadProjectConfig, applyBranding } from '@/config/projectConfig';
 import type { ProjectConfig } from '@/types/projectConfig';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
@@ -35,17 +35,13 @@ import { Profile } from '@/features/profile/profile';
 import { Preferences } from '@/features/preferences/preferences';
 import { Privacy } from '@/features/compliance/compliance';
 import { LegalDocumentPage } from '@/features/compliance/legal';
-import { Dashboard, Placeholder } from '@/features/dashboard/dashboard';
+import { Dashboard, NotSetUp } from '@/features/dashboard/dashboard';
 import { PRIVACY_PAGE_ENABLED } from '@/config/structure';
-import { isServedWhileDisabled, norbixBranded } from '@/config/disabledPortal';
 
 type BootState =
   | { status: 'loading' }
   | { status: 'no-project' }
   | { status: 'echo-failed' }
-  | { status: 'portal-disabled' }
-  // Turned off, but an e-mail link page was opened: Norbix-branded, those pages only.
-  | { status: 'link-only'; config: ProjectConfig }
   | { status: 'ready'; config: ProjectConfig };
 
 export default function App() {
@@ -61,12 +57,11 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
 
-    const resolve = async () => {
-      // Resolve the project: pin → pr-<hex> host label → meta → custom-domain host
-      // lookup against the managed service. Async because the custom-domain
-      // path calls hub.norbix.ai/admin-portal-id.
-      const projectId = await resolveProjectIdAsync();
-      if (cancelled) return;
+    const start = async () => {
+      // The configured project (PROJECT_ID), written into the page by the
+      // server. The server shows the setup screen instead of this app when it
+      // is missing, so "no project" here is only a safety net.
+      const projectId = resolveProjectId();
       if (!projectId) {
         setBoot({ status: 'no-project' });
         return;
@@ -79,10 +74,6 @@ export default function App() {
       // REQUIRED — the API base comes only from echo (no env fallback), so if
       // echo fails the portal cannot make API calls and shows an error rather
       // than a broken half-loaded UI.
-      // Managed (Norbix-hosted) flavour comes from /echo `release`. Only the
-      // managed portal honours the coarse disabled flag; self-hosted ignores it
-      // (its service-user key is the truth, not this flag).
-      let isManaged = false;
       try {
         const echo = await dispatch(hub.endpoints.echo.initiate()).unwrap();
         if (cancelled) return;
@@ -93,7 +84,6 @@ export default function App() {
           return;
         }
         setNorbixApiBase(echo.apiUrl, echo.apiVersion);
-        isManaged = echo.release === 'ManagedService';
       } catch {
         if (!cancelled) setBoot({ status: 'echo-failed' });
         return;
@@ -105,28 +95,12 @@ export default function App() {
       const config = await loadProjectConfig(projectId);
       if (cancelled) return;
 
-      // Managed portal + explicitly disabled → show "unavailable" instead of the
-      // app. `adminPortalEnabled` defaults to enabled when absent (older gateway)
-      // so we never lock out before the flag ships.
-      if (isManaged && config.adminPortalEnabled === false) {
-        // The e-mail links (password reset, invitation) still land here, with
-        // the Norbix look (owner decision 2026-10-15 #4, config/disabledPortal).
-        if (isServedWhileDisabled(window.location.pathname)) {
-          const norbix = norbixBranded(config);
-          dispatch(projectConfigResolved(norbix));
-          setBoot({ status: 'link-only', config: norbix });
-          return;
-        }
-        setBoot({ status: 'portal-disabled' });
-        return;
-      }
-
       applyBranding(config);
       dispatch(projectConfigResolved(config));
       setBoot({ status: 'ready', config });
     };
 
-    void resolve();
+    void start();
     return () => {
       cancelled = true;
     };
@@ -141,7 +115,7 @@ export default function App() {
   }
 
   if (boot.status === 'no-project') {
-    return <Placeholder />;
+    return <NotSetUp />;
   }
 
   if (boot.status === 'echo-failed') {
@@ -153,39 +127,6 @@ export default function App() {
           shortly.
         </p>
       </div>
-    );
-  }
-
-  const portalDisabled = (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-2 px-4 text-center">
-      <p className="text-lg font-medium text-fg">Portal unavailable</p>
-      <p className="text-sm text-fg-muted">
-        This portal is currently turned off. Please contact the site owner.
-      </p>
-    </div>
-  );
-
-  if (boot.status === 'portal-disabled') {
-    return portalDisabled;
-  }
-
-  if (boot.status === 'link-only') {
-    return (
-      <NorbixProvider key={token ?? 'anon'} client={getNorbixClient()}>
-        <BrowserRouter>
-          <Routes>
-            <Route
-              path={ROUTES.PASSWORD_RESET_CONFIRM}
-              element={<PasswordResetConfirm />}
-            />
-            <Route
-              path={ROUTES.INVITATION_FINISH}
-              element={<InvitationFinish />}
-            />
-            <Route path="*" element={portalDisabled} />
-          </Routes>
-        </BrowserRouter>
-      </NorbixProvider>
     );
   }
 

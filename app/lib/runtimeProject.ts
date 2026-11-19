@@ -1,12 +1,10 @@
-// Runtime project pin for self-hosted installs (server env, read per request).
+// The PROJECT_ID value, checked.
 //
-// NEXT_PUBLIC_ADMIN_PROJECT_ID is inlined into the browser bundle at BUILD
-// time, so a public image (community-admin) cannot carry a customer's project.
-// Instead the server reads PROJECT_ID at request time and the root layout
-// emits it as <meta name="norbix-project" content="…">, which the client
-// resolver already reads (src/config/project.ts, step 3). One image, any
-// customer, any domain.
-import { parseProjectIdFromHost } from '@/config/project';
+// The server reads PROJECT_ID at request time (never baked into the build), so
+// one image works for any project on any address. The root layout writes the
+// checked id into the page as <meta name="norbix-project" content="…">, which
+// the browser reads (src/config/project.ts).
+import { viewIdFromHostLabel } from '@/config/project';
 
 // The gateway's ProjectId.ViewId: "pr_" + base62.
 const VIEW_ID = /^pr_[0-9A-Za-z]{1,40}$/;
@@ -20,5 +18,5 @@ export function runtimeProjectId(raw: string | undefined): string | null {
   const value = raw?.trim();
   if (!value) return null;
   if (VIEW_ID.test(value)) return value;
-  return parseProjectIdFromHost(value);
+  return viewIdFromHostLabel(value);
 }

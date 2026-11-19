@@ -11,7 +11,6 @@
 
 interface ImportMetaEnv {
   VITE_ADMIN_CONFIG_MODE?: string;
-  VITE_ADMIN_PROJECT_ID?: string;
 }
 
 // Vite exposes import.meta.env; Next does not (it would be undefined). Guard the
@@ -45,20 +44,13 @@ const NEXT_CONFIG_MODE =
   typeof process !== 'undefined' && process.env
     ? process.env.NEXT_PUBLIC_ADMIN_CONFIG_MODE
     : undefined;
-const NEXT_PROJECT_ID =
-  typeof process !== 'undefined' && process.env
-    ? process.env.NEXT_PUBLIC_ADMIN_PROJECT_ID
-    : undefined;
 
 const env = {
   VITE_ADMIN_CONFIG_MODE: pick(NEXT_CONFIG_MODE, 'CONFIG_MODE'),
-  VITE_ADMIN_PROJECT_ID: pick(NEXT_PROJECT_ID, 'PROJECT_ID'),
 } satisfies ImportMetaEnv;
 
-// Release/runtime (ManagedService | SelfHosted | Enterprise) is NOT configured
-// here — it is discovered from the Hub's /echo response at boot (see the config
-// slice `selectRelease`). The portal blocks until echo resolves, so there is no
-// need to hardcode it.
+// The project id is NOT a build-time value: the server reads PROJECT_ID at
+// run time and writes it into the page (src/config/project.ts).
 
 // ── Config mode (brand + auth resolution) ───────────────────────────
 // 'static'  → load brand + auth ENTIRELY from the bundled per-project config;
@@ -100,17 +92,11 @@ export const HUB_PROXY_BASE = '/api/proxy/hub';
 // the proxy there is no custom hub base, so dynamic config always runs in dev.
 export const HAS_CUSTOM_HUB_BASE = false;
 
-/** Optional build-time project pin (self-hosted custom-domain builds). */
-export const PINNED_PROJECT_ID: string | undefined =
-  env.VITE_ADMIN_PROJECT_ID && env.VITE_ADMIN_PROJECT_ID.length > 0
-    ? env.VITE_ADMIN_PROJECT_ID
-    : undefined;
-
 // IS_DEV = "is this a local development BUILD" (NODE_ENV !== 'production').
 // It only toggles developer conveniences: Redux DevTools and the skip-remote
 // config heuristic. It is NOT the Norbix project environment (PROD / staging /
-// test) — that is the `norbix-env` header, set from the server `ENV` var
-// (self-hosted) or derived from the host (managed). The two are unrelated.
+// test) — that is the `norbix-env` header, set from the server `ENV` variable.
+// The two are unrelated.
 export const IS_DEV: boolean =
   Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV) ||
   (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production');

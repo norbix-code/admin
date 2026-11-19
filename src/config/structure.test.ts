@@ -6,7 +6,6 @@ import type { AdminPortalStructure } from '@/services/portalApi';
 const structure = (keys: string[]): AdminPortalStructure =>
   ({
     projectId: 'pr_x',
-    adminPortalEnabled: true,
     displayName: '',
     modules: keys.map((key) => ({ key, displayName: key, enabled: true })),
   }) as AdminPortalStructure;

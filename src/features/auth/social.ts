@@ -101,7 +101,7 @@ export function apiHostRoot(apiUrl: string | null | undefined): string | null {
  * The portal page the gateway sends the browser back to, on success and on
  * failure. `via` names the provider and `link=1` marks a link, so the page
  * can word an `error=` answer (the gateway adds only `error` to a failure).
- * Its origin must be in the project's CORS union (README, "Social sign-in").
+ * Its origin must be in the project's CORS union (docs/social-sign-in.md).
  */
 export function socialReturnUrl(
   portalOrigin: string,

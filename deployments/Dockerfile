@@ -1,37 +1,29 @@
 # syntax=docker/dockerfile:1.7
 #
-# Single self-hostable image for the Norbix Admin Portal (Next.js, app router).
+# The image of the Norbix Admin Portal (Next.js, app router). You host it.
 #
 # One container serves BOTH the React UI and the server route handlers
-# (app/api/*) from one Node process — no separate static server, no Vercel.
+# (app/api/*) from one Node process — no separate static server.
 # Built from Next's `output: 'standalone'`.
 #
-# Unlike the old Vite image, configuration is RUNTIME (read by the Node server),
-# not baked into the bundle. Pass env at `docker run` / in k8s:
-#   API_KEY        — service-user API key (server-only; never shipped to the browser)
-#   HUB_BASE_URL   — e.g. https://hub.norbix.ai
-#   API_BASE_URL   — e.g. https://api.norbix.ai
-#   ENV            — optional Norbix environment (staging/test); unset = PROD
-#   PROJECT_ID     — self-hosted: the project this portal serves (pr_{base62}
-#                    or pr-{32 hex}). Emitted per request as a meta tag, so one
-#                    public image works for any customer on any domain.
+# Configuration is RUNTIME (read by the Node server), not baked into the
+# bundle. Pass it at `docker run` / in your orchestrator:
+#   PROJECT_ID     — required. The project this portal serves (pr_…).
+#   API_KEY        — required. The API key of the project's Admin Portal
+#                    service user (server-only; never shipped to the browser).
+#   ENV            — optional project environment (staging/test); unset = PROD
+#   HUB_BASE_URL   — optional, default https://hub.norbix.ai
+#   API_BASE_URL   — optional, default https://api.norbix.ai
 #
-# There is NO edition build arg: Community / ManagedService / Enterprise is
-# decided at RUNTIME (the Hub's /echo `release`, and API_KEY present =
-# self-hosted). The same build is published as admin, enterprise-admin and
-# community-admin.
+# Without PROJECT_ID or API_KEY the portal starts and shows a setup page that
+# names the missing variable.
 #
-# Browser values (NEXT_PUBLIC_*) are the exception: Next inlines them into the
-# bundle at BUILD time, so they are build args, not runtime env. Leave them
-# EMPTY for any published image (they would pin every user of the image):
-#   NEXT_PUBLIC_ADMIN_PROJECT_ID   — private single-project builds only;
-#                                    prefer the runtime PROJECT_ID
+# One browser value is a build arg, because Next inlines NEXT_PUBLIC_* into the
+# bundle at BUILD time:
 #   NEXT_PUBLIC_ADMIN_CONFIG_MODE  — 'dynamic' (default) or 'static'
 #
-#   docker build -f deployments/Dockerfile -t norbix/community-admin .
-#   docker run -p 3100:3100 -e PROJECT_ID=pr_xxxx -e API_KEY=... \
-#     -e HUB_BASE_URL=https://hub.example.com \
-#     -e API_BASE_URL=https://api.example.com norbix/community-admin
+#   docker build -f deployments/Dockerfile -t my-admin-portal .
+#   docker run -p 3100:3100 -e PROJECT_ID=pr_xxxx -e API_KEY=... my-admin-portal
 
 ARG NODE_VERSION=22
 
@@ -49,12 +41,9 @@ RUN --mount=type=cache,target=/root/.npm \
 # ─────────────────────────────────────────────────────────────────
 FROM node:${NODE_VERSION}-alpine AS build
 WORKDIR /app
-# Inlined into the browser bundle by `next build` (see the header). Empty =
-# not pinned: the project comes from the host label / custom-domain lookup.
-ARG NEXT_PUBLIC_ADMIN_PROJECT_ID=""
+# Inlined into the browser bundle by `next build` (see the header).
 ARG NEXT_PUBLIC_ADMIN_CONFIG_MODE=""
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 \
-    NEXT_PUBLIC_ADMIN_PROJECT_ID=${NEXT_PUBLIC_ADMIN_PROJECT_ID} \
     NEXT_PUBLIC_ADMIN_CONFIG_MODE=${NEXT_PUBLIC_ADMIN_CONFIG_MODE}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

@@ -4,12 +4,10 @@ import {
   Json,
   Reply,
   call,
-  ensurePortalEnabled,
   ensureServiceUser,
   env,
   must,
   projectHeaders,
-  publicConfig,
   signInDeveloper,
   succeeded,
   until,
@@ -33,12 +31,10 @@ import {
 /** A fresh suffix per run: the stack database is disposable, a rerun never meets old users. */
 export const RUN = Date.now().toString(36);
 
-/** The developer signed in, the service user assigned and the portal on. */
+/** The developer signed in and the service user assigned. */
 export async function preparePortal(): Promise<Developer> {
   const dev = await signInDeveloper();
   await ensureServiceUser(dev);
-  await ensurePortalEnabled(dev);
-  await until('the public config says the portal is on', async () => (await publicConfig(dev.ctx, dev.projectId)).adminPortalEnabled === true);
   return dev;
 }
 

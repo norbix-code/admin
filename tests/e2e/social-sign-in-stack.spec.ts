@@ -244,14 +244,6 @@ test.fixme('F1: the click as it is reaches the provider on the stack (http porta
   expect(new URL(r.location).host).toBe('accounts.google.com');
 });
 
-test.fixme('F1: the hosted portal origin (pr-<hex> admin host) is accepted as returnUrl on the stack', async () => {
-  // The project's own hosted portal is in the allowed set (round 3 step 14), but on the stack
-  // it is http://pr-<hex>.<item>.norbix.test:3000 — refused by the same http rule.
-  const hosted = new URL(String((await project(dev)).canonicalAdminUrl)).origin;
-  const r = await raw(startUrl('google', { returnUrl: `${hosted}/oauth/callback?via=google` }));
-  expect(new URL(r.location).host).toBe('accounts.google.com');
-});
-
 test('a returnUrl on a foreign origin goes to the mode failure page with error=return_url_not_allowed; no state, no cookie', async () => {
   const r = await raw(startUrl('google', { returnUrl: 'https://evil.example.test/steal' }));
   expect({ status: r.status, location: r.location, cookie: nbSocial(r.cookies) ?? null }).toEqual({

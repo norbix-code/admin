@@ -227,7 +227,6 @@ const server = createServer(async (req, res) => {
   if (path === `/v3/public/projects/${PROJECT}/config`) {
     return json(res, 200, {
       displayName: 'E2E Shop',
-      adminPortalEnabled: true,
       // Brand exposed: logo + icon only. No colours, so the chat goldens keep
       // the default token colours.
       branding: {

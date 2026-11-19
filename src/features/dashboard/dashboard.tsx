@@ -10,7 +10,6 @@ export function Dashboard() {
   const projectId = useAppSelector(selectSelectedProjectId);
   // RTK Query owns the fetch + cache. `skipToken` until a project is resolved.
   // While loading (or on error) `data` is undefined → the default layout shows.
-  // (The backend picks self-hosted vs managed from API_KEY presence.)
   const { data: structure } = useGetStructureQuery(
     projectId ? { projectId } : skipToken,
   );
@@ -36,13 +35,21 @@ export function Dashboard() {
   );
 }
 
-export function Placeholder() {
+/**
+ * Safety net for a page that carries no project. The server normally shows
+ * its own setup screen first (app/SetupRequired.tsx), which names what is
+ * missing.
+ */
+export function NotSetUp() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-app px-4 text-center">
-      <h1 className="text-xl font-semibold text-fg">Norbix Admin</h1>
+      <h1 className="text-xl font-semibold text-fg">
+        This portal is not set up yet
+      </h1>
       <p className="mt-2 max-w-sm text-sm text-fg-muted">
-        No project selected. Open this portal at your project address (for
-        example <code>pr-&lt;id&gt;.admin.norbix.ai</code>) to continue.
+        No project is configured. Set <code>PROJECT_ID</code> and{' '}
+        <code>API_KEY</code> on the server that runs this portal, then restart
+        it.
       </p>
     </div>
   );

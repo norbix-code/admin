@@ -1,5 +1,5 @@
 // Chat glyphs, hand-drawn inline SVG (clean-room, MIT) in the same style as
-// src/components/icons.tsx — no icon library (README "Minimal by design").
+// src/components/icons.tsx — no icon library (README "Few dependencies, on purpose").
 // Outline strokes follow `currentColor`; the two filled thumbs mark a set
 // like / dislike.
 
