@@ -1,5 +1,5 @@
 # Admin Portal on Managed Service production (Virginia + Frankfurt)
-This file: /Users/djovaisas/Projects/norbix/admin/docs/tasks/admin-portal-production.md (branch main, after the merge; written on branch fix/portal-project-api-host)
+This file: /Users/djovaisas/Projects/norbix/admin/docs/tasks/admin-portal-production.md (branch main)
 
 ## Goal
 An end user of a Managed Service project can open the project's Admin Portal and sign in, whether the project is processed in Virginia or in Frankfurt.
@@ -25,11 +25,11 @@ Not in scope: a second admin deployment per region, custom domains for the porta
 2. [done] fix(admin:proxy): the portal backend calls a project's own API host on an install with regions, so a Frankfurt project can sign in
 3. [done] chore(admin:proxy): the debug line that printed every proxied address to the pod log is removed
 4. [done] docs(admin): backend.md, devops.md and README describe the per-project API host and what production really runs
-5. [doing] release(admin): pull request merged with nbx-ship
+5. [done] release(admin): pull request merged with nbx-ship — https://github.com/norbix-code/admin/pull/24 (squash, main)
 6. [todo] release(production): the owner releases the admin image (commands under "Needs you")
 
 ## Changes
-| file (absolute, branch main after merge) | what changed | step |
+| file (absolute, branch main) | what changed | step |
 |------|--------------|------|
 | /Users/djovaisas/Projects/norbix/admin/app/lib/projectApi.ts | new: reads `apiUrlTemplate` from the Hub's `/echo` (kept 5 minutes), picks the project of a call, answers the API base for it | 2 |
 | /Users/djovaisas/Projects/norbix/admin/src/config/projectApiHost.ts | new: builds `https://pr-<hex>.api.<domain>` from the template and a project id; null for anything else | 2 |
@@ -46,7 +46,7 @@ Not in scope: a second admin deployment per region, custom domains for the porta
 ### Fixed
 
 fix(admin:proxy): the portal backend sent every API call to the shared host, which refuses a Frankfurt project, so no end user of a Frankfurt project could sign in — done
-    where: /Users/djovaisas/Projects/norbix/admin/app/api/proxy/[target]/[...path]/route.ts:81 (branch main after merge)
+    where: /Users/djovaisas/Projects/norbix/admin/app/api/proxy/[target]/[...path]/route.ts:81 (branch main)
 
 ```ts
 // before — admin/app/api/proxy/[target]/[...path]/route.ts:24-27, 76-80 (main, e11058d)
@@ -107,7 +107,7 @@ Proof on production (a sign-in with a made-up user and a wrong password, nothing
 Tests: `npx vitest run` → 33 files, 254 tests passed (13 new). `npm run typecheck`, `npm run lint`, `npm run build` passed.
 
 chore(admin:proxy): a "temporary" debug line printed every proxied address, with its query string, to the production pod log — done
-    where: /Users/djovaisas/Projects/norbix/admin/app/api/proxy/[target]/[...path]/route.ts:97 (branch main after merge)
+    where: /Users/djovaisas/Projects/norbix/admin/app/api/proxy/[target]/[...path]/route.ts:97 (branch main)
 
 ```ts
 // before — admin/app/api/proxy/[target]/[...path]/route.ts:96-99 (main, e11058d); removed
@@ -122,7 +122,7 @@ blocked(production:projects): the portal cannot be seen working for any project 
     where: `norbix account projects --profile norbix-ai --json` (one row: Class Fund, nb-eu-germany, adminPortalEnabled false)
 
 decision(admin:regions): the end user of a Frankfurt project reaches Frankfurt through the portal pod in Virginia (browser → Virginia → Frankfurt), passwords included — needs you
-    where: /Users/djovaisas/Projects/norbix/admin/docs/devops.md:20 (branch main after merge)
+    where: /Users/djovaisas/Projects/norbix/admin/docs/devops.md:20 (branch main)
     The other shape is an admin deployment in every region (pods, a certificate and a DNS name per region, more cost). Not built without a yes.
 
 fix(gateway:brand): the project logo of Class Fund answers 404, so the portal shows the name without the picture — todo
