@@ -35,6 +35,12 @@ import { PasswordChangeRequired } from '@/features/auth/passwordChangeRequired';
 import { Profile } from '@/features/profile/profile';
 import { Preferences } from '@/features/preferences/preferences';
 import { LegalDocumentPage } from '@/features/legal/legal';
+import {
+  EmailPreferencesPage,
+  EmailUnsubscribePage,
+} from '@/features/emailLinks/emailLinkPages';
+import { EmailPreviewPage } from '@/features/emailLinks/emailPreview';
+import { PreviewModeNotice } from '@/features/emailLinks/previewNotice';
 import { Dashboard, NotSetUp } from '@/features/dashboard/dashboard';
 
 type BootState =
@@ -153,6 +159,27 @@ export default function App() {
           <Route
             path={ROUTES.INVITATION_FINISH}
             element={<InvitationFinish />}
+          />
+          <Route
+            path={ROUTES.EMAIL_PREFERENCES}
+            element={<EmailPreferencesPage />}
+          />
+          <Route
+            path={ROUTES.EMAIL_UNSUBSCRIBE}
+            element={<EmailUnsubscribePage />}
+          />
+          <Route path={ROUTES.EMAIL_PREVIEW} element={<EmailPreviewPage />} />
+          <Route
+            path={ROUTES.EMAIL_PREFERENCES_TEST}
+            element={<PreviewModeNotice kind="preferences" />}
+          />
+          <Route
+            path={ROUTES.EMAIL_UNSUBSCRIBE_TEST}
+            element={<PreviewModeNotice kind="unsubscribe" />}
+          />
+          <Route
+            path={ROUTES.EMAIL_PREVIEW_TEST}
+            element={<PreviewModeNotice kind="preview" />}
           />
           <Route
             path={ROUTES.LEGAL_TERMS}

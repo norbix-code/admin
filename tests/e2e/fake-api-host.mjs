@@ -7,7 +7,7 @@
 // camelCase JSON, `/v3/ai/chat/*`, the SSE frame `data: cmd.{event} {envelope}`.
 //
 //   node tests/e2e/fake-api-host.mjs            (port FAKE_API_PORT, default 3198)
-//   GET  /__state   → what the portal sent (feedback, stream requests …)
+//   GET  /__state   → what the portal sent (feedback, stream requests, email link tokens …)
 //   GET  /__assets/logo.svg → the project's brand logo (public config logoUrl)
 //   POST /__reset   → back to the first-visit state; body {"refuseStream":true}
 //                     makes /event-stream answer 403 AiChatChannelRefused;
@@ -66,6 +66,10 @@ const reset = (opts = {}) => {
     linkChallenge: null,
     // Passkey recovery link redemptions (social sign-in spec).
     recoveryConsumes: [],
+    // Footer links of a sent email: the signed key each call carried, and
+    // whether the address is unsubscribed (email link pages spec).
+    emailLinkTokens: [],
+    unsubscribed: false,
     sessions: [],
     entries: [],
     feedback: [],
@@ -212,6 +216,52 @@ const server = createServer(async (req, res) => {
       'cache-control': 'no-cache',
     });
     return res.end(LOGO_SVG);
+  }
+
+  // ── Footer links of a sent email (Hub, no auth: the signed key is the token) ──
+  // `good-key` is the only valid link; anything else is refused as the gateway does.
+  if (
+    path === '/v3/email/preferences' ||
+    path === '/v3/email/one-click-unsubscribe'
+  ) {
+    const token = url.searchParams.get('token') ?? '';
+    state.emailLinkTokens.push(token);
+    if (token !== 'good-key') {
+      return json(res, 400, {
+        responseStatus: {
+          isSuccess: false,
+          errors: [
+            {
+              errorCode: 'CM-ERRORS-EMAILS-024',
+              message: 'This link is not valid.',
+            },
+          ],
+        },
+      });
+    }
+    if (path === '/v3/email/one-click-unsubscribe') {
+      state.unsubscribed = true;
+      return json(res, 200, { responseStatus: { isSuccess: true } });
+    }
+    return json(res, 200, {
+      item: {
+        emailAddress: 'ana@example.com',
+        unsubscribedFromMarketing: state.unsubscribed,
+      },
+      responseStatus: { isSuccess: true },
+    });
+  }
+  if (path === '/v3/notifications/email/preview') {
+    return url.searchParams.get('hash') === 'good-key'
+      ? json(res, 200, {
+          subject: 'Your order shipped',
+          body: '<h1>Order #42</h1><p>On its way.</p>',
+        })
+      : json(res, 400, {
+          responseStatus: {
+            errors: [{ errorCode: 'CM-ERRORS-NOTIFICATIONS-PREVIEW-002' }],
+          },
+        });
   }
 
   // ── Hub /echo + public project config (no auth) ──

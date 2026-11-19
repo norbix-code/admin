@@ -65,6 +65,9 @@ PUBLIC
   /sign-in/reset/confirm → set a new password with the token from the e-mail
   /sign-up               → a visitor creates an account (when the project allows it)
   /sign-up/invitation    → an invited user finishes registration
+  /notifications/preferences?hash=…        → email preferences (footer link, no sign-in)
+  /notifications/email-unsubscribe?hash=…  → unsubscribe from marketing emails (footer link, no sign-in)
+  /notifications/emails/preview?hash=…     → "View in web" of one sent email (no sign-in)
   /oauth/callback        → social sign-in return, account link return,
                            passkey recovery link
   /legal/terms           → published terms
@@ -79,6 +82,19 @@ SIGNED IN (anything else redirects to /sign-in)
 
 Not set up (PROJECT_ID or API_KEY missing) → the setup screen on every path
 ```
+
+## Footer links of sent emails
+
+The footer of a campaign email links to three public pages: email
+preferences, unsubscribe, and "View in web". They need no sign-in: the signed
+`hash` in the link is the only key, and the gateway refuses an edited or
+expired link. Opening the unsubscribe page changes nothing; the person clicks
+the button (mail scanners open links on their own). The pages show your
+project's logo and name.
+
+When your project has an Admin portal URL, Norbix builds these links on your
+portal. Without one, they open the same pages on Norbix Cloud. The code is in
+`src/features/emailLinks/`.
 
 ## AI chat (optional)
 
