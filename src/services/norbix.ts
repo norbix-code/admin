@@ -115,6 +115,7 @@ export const norbixApi = createNorbixApi(() => getNorbixClient());
 export const {
   // auth
   useLoginMutation,
+  useSaveEmailUserMutation,
   useLogoutMutation,
   // profile (membership user)
   useGetUserQuery,

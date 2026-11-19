@@ -23,6 +23,7 @@ import { Spinner } from '@/components/ui';
 import { AppLayout } from '@/components/layouts';
 import { RequireAuth } from '@/features/auth/requireAuth';
 import { Login } from '@/features/auth/login';
+import { SignUp } from '@/features/auth/signUp';
 import {
   PasswordResetRequest,
   PasswordResetConfirm,
@@ -139,6 +140,7 @@ export default function App() {
         <Routes>
           {/* Public */}
           <Route path={ROUTES.SIGN_IN} element={<Login config={config} />} />
+          <Route path={ROUTES.SIGN_UP} element={<SignUp config={config} />} />
           <Route
             path={ROUTES.PASSWORD_RESET}
             element={<PasswordResetRequest />}

@@ -204,6 +204,9 @@ export function Login({ config }: { config: ProjectConfig }) {
         <Link to={ROUTES.PASSWORD_RESET} className="text-brand hover:underline">
           Forgot password?
         </Link>
+        <Link to={ROUTES.SIGN_UP} className="text-brand hover:underline">
+          Create account
+        </Link>
       </div>
 
       {(termsUrl || privacyUrl) && (

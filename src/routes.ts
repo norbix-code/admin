@@ -2,6 +2,7 @@ export const ROUTES = {
   HOME: '/',
   // Auth (unauthenticated)
   SIGN_IN: '/sign-in',
+  SIGN_UP: '/sign-up',
   PASSWORD_RESET: '/sign-in/reset',
   PASSWORD_RESET_CONFIRM: '/sign-in/reset/confirm',
   OAUTH_CALLBACK: '/oauth/callback',
