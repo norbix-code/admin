@@ -19,10 +19,10 @@ detailed doc. This is the "why it is the way it is" record.
 ## 2. Configs (three ways to run it)
 
 A project's brand + auth options come from a `ProjectConfig`, resolved by mode
-(`VITE_ADMIN_CONFIG_MODE`):
+(`NEXT_PUBLIC_ADMIN_CONFIG_MODE`):
 
 1. **Developer passes config** (`static`) — bundled `config/projects/{id}.json`,
-   no network. Forker's fast path.
+   no network. The fast path.
 2. **Own deployment / fork** — edit components, CSS, or config directly.
 3. **Call the Hub** (`dynamic`, default) — fetch the public endpoint, merge over
    neutral defaults; on failure, defaults stand (never a blank screen).
@@ -74,26 +74,18 @@ All three produce the same shape. Full design:
   button, and the *expose legal documents* checkbox. Wire to the two Hub PATCH
   endpoints above.
 
-## 6. Admin-portal URL (canonical + override)
+## 6. Admin portal URL
 
-- Every project has a **canonical** admin address `https://pr_{id}.admin.{host}`
-  — deterministic, always constructable (the host is mandatory). It's the
-  default CORS-seeded origin and is shown **read-only** in Cloud → Project
-  Settings → Access.
-- A developer can **override** it per project (`AdminUrl`, default null) when
-  CNAMEing a custom domain or deploying the portal elsewhere. The override's
-  origin is also added to CORS. The **effective** URL (override ?? canonical) is
-  what password-reset links and the `@Model.Project.AdminUrl` email token use.
-- **Cloud UI (spec):** on the Access tab, show the canonical URL read-only and
-  an editable `AdminUrl` field (empty = use canonical), wired to Hub `PATCH
-  .../settings/admin-url`. Backend design: gateway
-  `docs/architecture/AdminPortal.PublicConfig.md`.
+- Norbix does not give a project a portal address. The project owner hosts the
+  portal and saves its address in Norbix Cloud as the project's **Admin portal
+  URL**.
+- Saving it adds the address to the project's allowed origins (CORS). It is
+  also what password-reset and invitation links and the
+  `@Model.Project.AdminUrl` email token use.
 
 ## 7. Deployment model
 
-- One portal serves many projects; the project id is in the `pr_{base62}`
-  subdomain. New projects auto-seed `pr_{id}.admin.{host}` into their CORS
-  allow-list on creation. See [`architecture.md`](./architecture.md) and the
-  gateway decision `docs/decisions/auto-seed-admin-cors-origin.md`.
-- Docker + k8s (managed-service + self-hosted, wildcard ingress):
-  [`devops.md`](./devops.md).
+- One portal serves one project. The project and the service user's key come
+  from the server variables `PROJECT_ID` and `API_KEY`. See
+  [`architecture.md`](./architecture.md) and [`backend.md`](./backend.md).
+- Docker image or any Node host: [`devops.md`](./devops.md).

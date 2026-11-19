@@ -1,3 +1,5 @@
+> Superseded 2026-11-19: Norbix no longer hosts the portal; it is self-hosted only.
+
 # Admin portal — communication structure, privacy page, managed host label, F37–F40
 This file: /Users/djovaisas/Projects/norbix/admin/docs/tasks/portal-structure-hostlabel.md (branch main, after the merge; worked on in branch fix/portal-structure-hostlabel)
 

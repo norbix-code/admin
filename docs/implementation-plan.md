@@ -72,7 +72,7 @@ admin/
       store.ts               # configureStore + reducers + middleware
       hooks.ts               # typed useAppDispatch / useAppSelector
     config/
-      env.ts                 # reads VITE_ADMIN_* envs
+      env.ts                 # browser build-time config
       project.ts             # resolve projectId from host / build pin
       loginConfig.ts         # static-then-dynamic loader (LoginConfig)
     components/              # clean-room UI (see §3)
@@ -96,7 +96,7 @@ admin/
     styles.css
   config/
     login-config.schema.json # JSON schema for static project config
-    projects/                # static per-project configs (self-hosted)
+    projects/                # static per-project configs
       example.json
   index.html
   package.json

@@ -2,19 +2,20 @@
 
 ## 1. Where Admin sits among the portals
 
-Norbix has four web/HTTP surfaces. Two are backend gateways, two are SPAs.
+Norbix has four web/HTTP surfaces. Two are backend gateways, two are web
+apps.
 
 ```
                          ┌─────────────────────────────────────────┐
                          │                BACKEND                   │
                          │                                          │
-  developer / tenant ──► │  Hub      hub.norbix.ai / hub.<domain>   │ ◄── Cloud SPA
+  developer / tenant ──► │  Hub      hub.norbix.ai                  │ ◄── Cloud SPA
                          │           tenant + developer surface     │
                          │           (build project structure:      │
                          │            modules, integrations,        │
                          │            triggers, schemas, templates) │
                          │                                          │
-  end-user apps   ─────► │  API      api.norbix.ai / api.<domain>   │ ◄── Admin SPA
+  end-user apps   ─────► │  API      api.norbix.ai                  │ ◄── Admin Portal
                          │           end-user surface               │     (this project)
                          │           (what an app's user can do:    │
                          │            auth, profile, data, ...)     │
@@ -23,14 +24,15 @@ Norbix has four web/HTTP surfaces. Two are backend gateways, two are SPAs.
                          ┌─────────────────────────────────────────┐
                          │                FRONTEND                  │
                          │                                          │
-  developer / tenant ──► │  Cloud    cloud.norbix.ai / cloud.<dom.> │  talks to Hub
+  developer / tenant ──► │  Cloud    cloud.norbix.ai                │  talks to Hub
                          │           the Norbix dashboard. Build &  │
                          │           administer the project.        │
                          │                                          │
-  end-user        ─────► │  Admin    admin.norbix.ai / admin.<dom.> │  talks to API
+  end-user        ─────► │  Admin    admin.<your domain>            │  talks to API
                          │           THIS PROJECT. The out-of-the-  │
                          │           box self-service portal for    │
-                         │           the project's end users.       │
+                         │           the project's end users. You   │
+                         │           host it; Norbix does not.      │
                          └─────────────────────────────────────────┘
 ```
 
@@ -38,7 +40,9 @@ Norbix has four web/HTTP surfaces. Two are backend gateways, two are SPAs.
 developer/tenant control plane; the API is the end-user data plane. The Admin
 Portal only ever uses end-user-scoped API endpoints, plus a small number of
 **public** API endpoints to render the login screen before the user is signed
-in.
+in. Its own backend also reads three things from the Hub with the service
+user's key: the portal layout, the role names and the communication structure
+([`backend.md`](./backend.md)).
 
 ## 2. The problem Admin solves
 
@@ -59,69 +63,43 @@ URL can be pasted into App Store / Play Store listings, which require a
 reachable privacy-policy URL. This is valuable when the developer has an app
 but no website or portal yet.
 
-## 3. The domain / project model
+## 3. One portal, one project — hosted by the project owner
 
-### 3.1 One portal, many projects
-
-For **managed service** we cannot deploy a separate portal per tenant project.
-There is **one** deployment at `admin.norbix.ai` serving every project.
-
-The project is identified by the **subdomain**, not by a server-side registry:
+Norbix does not host the Admin Portal. This repository is a starter: the
+developer of a project clones it, sets two values and hosts it on their own
+address.
 
 ```
-pr_{base62}.admin.norbix.ai
-└──┬─────┘
-   └ the project id, base62-encoded, prefixed with "pr_"
+admin.example.com   ──►   your copy of this portal   ──►   hub.norbix.ai / api.norbix.ai
+                          PROJECT_ID=pr_…
+                          API_KEY=…  (Admin Portal service user)
 ```
 
-- `admin.norbix.ai` (no `pr_` prefix) → **blank / placeholder page.** No
-  project context, nothing to render. This is intentional.
-- `pr_7Hk2.admin.norbix.ai` → the portal extracts `7Hk2`, treats it as the
-  project id, calls the API for that project's public login settings, and
-  renders the login screen.
+- **The project comes from configuration.** `PROJECT_ID` on the server names
+  the project. The address the portal is opened at never decides it; there is
+  no host → project lookup anywhere.
+- **The key stays on the server.** `API_KEY` belongs to the project's Admin
+  Portal service user (role `AdminPortalManager`). The browser never sees it.
+- **The browser talks only to the portal.** Every call goes to the portal's
+  own backend (`/api/proxy/*`, `/api/structure`, `/api/bootstrap`), which
+  calls the Hub / API.
+- **The project must know the portal's address.** In Norbix Cloud the owner
+  saves the portal's address as the project's "Admin portal URL". That adds it
+  to the allowed origins (CORS) and makes e-mail links (password reset,
+  invitation) point to the portal.
+- **Not set up → a setup screen.** Without `PROJECT_ID` or `API_KEY` the
+  portal shows a page that names the missing variable
+  ([`backend.md`](./backend.md), "Configuration").
 
-### 3.2 Why subdomain, not a host→project registry
+For a project "example":
 
-An earlier idea was: register every custom domain in a registry in the Hub,
-have the portal resolve `Host` → project at request time. We rejected this:
-
-- It needs a lookup (and a cache) on the hot path of every cold page load —
-  worse latency and a new failure mode.
-- It needs a domain-registration step and a registry to keep in sync.
-
-Instead the **project id is mandatory and lives in the URL**. There is no
-generic registry and no domain registration in the Hub. The subdomain alone
-says which project we are talking about. This is simpler and faster.
-
-> Note: the **Cloud** portal does resolve project from the `Host` header
-> (`ProjectId.TryParseFromHost`) on the gateway side. Admin deliberately does
-> **not** copy that — Admin puts the id in the subdomain prefix so no registry
-> or gateway resolution is needed for a public, unauthenticated first paint.
-
-### 3.3 Custom domains via CNAME
-
-A developer who wants a branded portal points their own domain at ours:
-
-```
-admin.laimingaspilvukas.lt   CNAME   pr_7Hk2.admin.norbix.ai
-```
-
-Because the project id is baked into the CNAME **target**, the portal still
-knows the project even though the browser shows the custom host. No registry
-needed. (TLS for the custom host is handled at the ingress / cert layer — see
-`devops.md`.)
-
-### 3.4 The full naming picture for one project
-
-For a project "laimingaspilvukas":
-
-| Surface | Managed-service host | Branded (CNAME) host |
-| --- | --- | --- |
-| Public website | — | `laimingaspilvukas.lt` |
-| End-user portal (Admin) | `pr_7Hk2.admin.norbix.ai` | `admin.laimingaspilvukas.lt` |
-| Developer dashboard (Cloud) | `cloud.norbix.ai` | `cloud.laimingaspilvukas.lt` |
-| End-user API | `api.norbix.ai` | `api.laimingaspilvukas.lt` |
-| Tenant/dev Hub | `hub.norbix.ai` | `hub.laimingaspilvukas.lt` |
+| Surface | Address |
+| --- | --- |
+| Public website | `example.com` |
+| End-user portal (this project, hosted by the owner) | `admin.example.com` |
+| Developer dashboard (Cloud) | `cloud.norbix.ai` |
+| End-user API | `api.norbix.ai` (per project: `pr-<32 hex>.api.norbix.ai`) |
+| Tenant/dev Hub | `hub.norbix.ai` |
 
 ## 4. Login screen: dynamic vs static
 
@@ -131,37 +109,27 @@ defined for the project in Cloud — e.g. if the project enables email/password
 **plus** those social icons. There are two ways to obtain that config; both
 are supported (see [`login-resolution.md`](./login-resolution.md) for detail).
 
-1. **Dynamic (managed service, default).** The portal reads the project id
-   from the subdomain and calls a **public** API endpoint for that project's
-   login settings, then renders the screen at runtime. No redeploy needed when
-   the developer changes settings. Slightly slower first paint (one network
-   round-trip before the form appears).
+1. **Dynamic (default).** The portal calls a **public** API endpoint for the
+   configured project's login settings, then renders the screen at runtime. No
+   redeploy needed when the developer changes settings in Cloud. Slightly
+   slower first paint (one network round-trip before the form appears).
 
-2. **Static (self-hosted / enterprise).** Because the self-hosted Admin image
-   is **open source**, the operator can ship a `config/projects/{projectId}.json`
-   (or `.yaml`) describing the login screen and redeploy. The portal renders
-   from the bundled/served config **without** a network call — fastest paint.
-   Falls back to the dynamic path if no static entry exists.
+2. **Static.** You ship a `config/projects/{projectId}.json` describing the
+   login screen and redeploy. The portal renders from the bundled config
+   **without** a network call — fastest paint.
 
-Resolution order at runtime: **static config (if present for this project) →
-dynamic API call → blank placeholder (no project / not found).**
+## 5. Deployment
 
-## 5. Deployment flavors
-
-Same single codebase, three flavors gated on a build-time flag
-(`VITE_ADMIN_RELEASE`), exactly like Cloud's `VITE_CM_RELEASE`:
-
-| Flavor | Host | Login config | Notes |
-| --- | --- | --- | --- |
-| **ManagedService** | `pr_*.admin.norbix.ai` | Dynamic only | One deployment, wildcard subdomain, all tenants. |
-| **SelfHosted** | `admin.<customer>` | Static first, dynamic fallback | Operator ships per-project static config + redeploys. Open source. |
-| **Enterprise** | `admin.<customer>` | Static first, dynamic fallback | Same as self-hosted; larger SLAs / private images. |
+One codebase, one mode. Build the image from `deployments/Dockerfile` (or run
+`npm run build` + `npm run start` on any Node host), give it `PROJECT_ID` and
+`API_KEY`, and put it behind your own address with TLS. See
+[`devops.md`](./devops.md).
 
 ## 6. Endpoint discovery via Hub `/echo`
 
-The only endpoint the portal is configured with is the **Hub URL**
-(`VITE_ADMIN_HUB_BASE_URL`). On boot it calls `GET {hub}/{version}/echo` and
-gets back everything else:
+On boot the portal calls `GET {hub}/{version}/echo` (through its own proxy;
+the Hub address is the server variable `HUB_BASE_URL`, default
+`https://hub.norbix.ai`) and gets back:
 
 ```jsonc
 {
@@ -182,13 +150,14 @@ gets back everything else:
 }
 ```
 
-The response is stored in the `config` Redux slice; the API base query reads
-`apiUrl` from it at request time, so configuring one Hub URL is enough. The
-`apiUrl` env value is only a fallback when echo is unreachable. The contract
-matches `EchoResponse` in the gateway
-(`Isidos.CodeMash.Services.Api/Heartbeat/Echo.cs`); the Cloud portal consumes
-the same endpoint. Regions feed a future region selector; release/license can
-gate Enterprise-only UI.
+The response is stored in the `config` Redux slice. The browser does not call
+`apiUrl` itself: it calls the portal's proxy, and the portal backend picks the
+API address — `API_BASE_URL`, or the project's own host built from
+`apiUrlTemplate` ([`backend.md`](./backend.md)). The one exception is the
+social sign-in start, which the browser opens on the API host
+([`social-sign-in.md`](./social-sign-in.md)). The contract matches
+`EchoResponse` in the gateway; the Cloud portal consumes the same endpoint.
+The portal does not need `adminUrlTemplate` from it.
 
 ## 7. Backend contract (API gateway)
 
@@ -207,8 +176,8 @@ by the gateway repo; this is the contract Admin depends on.
   account deletion, read consent/data-usage info.
 
 All authenticated calls are **end-user-scoped** and carry the project context
-(project id from the subdomain → sent as a header / in the API base path).
-Admin never calls Hub endpoints.
+(the configured project id, sent as the `nb-project-id` /
+`norbix-project-id` headers).
 
 ## 8. Future: own records
 

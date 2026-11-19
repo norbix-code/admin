@@ -1,3 +1,5 @@
+> Superseded 2026-11-19: Norbix no longer hosts the portal; it is self-hosted only.
+
 # Task: community-admin image (self-hosted, public-safe)
 
 Branch `feat/community-admin-image` (worktree `worktrees/admin/feat/community-admin-image`).
