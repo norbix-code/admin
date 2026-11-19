@@ -36,6 +36,7 @@ Not in scope: a second admin deployment per region, custom domains for the porta
 | /Users/djovaisas/Projects/norbix/admin/src/config/project.ts | new `hostLabelFromViewId`: `pr_<base62>` → `pr-<32 hex>` | 2 |
 | /Users/djovaisas/Projects/norbix/admin/app/api/proxy/[target]/[...path]/route.ts | API calls use the project's host; debug log line removed | 2, 3 |
 | /Users/djovaisas/Projects/norbix/admin/app/api/proxy/[target]/[...path]/route.projectHost.test.ts | new: 5 tests on an install with per-project hosts | 2 |
+| /Users/djovaisas/Projects/norbix/admin/app/api/proxy/[target]/[...path]/route.internalApi.test.ts | new: a portal pointed at the API by an in-network address keeps that address | 2 |
 | /Users/djovaisas/Projects/norbix/admin/app/api/proxy/[target]/[...path]/route.test.ts | the stand-in also answers `/echo` (no template), so the old tests make no call to the real Hub | 2 |
 | /Users/djovaisas/Projects/norbix/admin/src/config/projectApiHost.test.ts, project.test.ts | new tests: .NET reference pairs both ways, the production project id, refusals | 2 |
 | /Users/djovaisas/Projects/norbix/admin/docs/backend.md, docs/devops.md, README.md | per-project API host; what production runs | 4 |
@@ -71,14 +72,25 @@ async function baseFor(
 }
 ```
 ```ts
-// admin/app/lib/projectApi.ts:86-91 — no template in /echo (self-hosted, staging) → API_BASE_URL, as before
+// admin/app/lib/projectApi.ts:101-108 — when the install does not fit, API_BASE_URL, as before
 export async function apiBaseForProject(
   projectId: string | null | undefined,
 ): Promise<string> {
   if (!projectId) return API_BASE;
-  return projectApiBase(await apiUrlTemplate(), projectId) ?? API_BASE;
+  const template = await apiUrlTemplate();
+  if (!template || sharedApiHostOf(template) !== ownApiHost()) return API_BASE;   // <-- no template, or the portal reaches the API by another address
+  return projectApiBase(template, projectId) ?? API_BASE;
 }
 ```
+
+The project host is used only when both are true: the Hub's `/echo` announces `apiUrlTemplate`, and `API_BASE_URL` is the shared host that template stands on (`api.norbix.ai` and `{label}.api.norbix.ai`). So:
+
+| Install | `/echo` template | Portal's `API_BASE_URL` | After this change |
+|---|---|---|---|
+| production (norbix.ai) | yes | `https://api.norbix.ai` | project host |
+| staging (norbix.io) | no (checked with `curl https://hub.norbix.io/v3/echo`) | — | unchanged |
+| gateway Docker stack | no (`NORBIX_PROJECT_API_HOSTS` is not set anywhere in `gateway/deployments`) and an in-network address | `http://<item>.norbix.test:5002` | unchanged |
+| a single-box install with the wildcard certificate (`devops/terraform/hostinger`, `NORBIX_PROJECT_API_HOSTS=on`) | yes | `https://api.<domain>` | project host, same public route the portal already uses |
 
 Proof on production (a sign-in with a made-up user and a wrong password, nothing is changed by it):
 
@@ -92,7 +104,7 @@ Proof on production (a sign-in with a made-up user and a wrong password, nothing
 [401] "Invalid Username or Password"        <-- Frankfurt now checks the password
 ```
 
-Tests: `npx vitest run` → 32 files, 251 tests passed (10 new). `npm run typecheck`, `npm run lint`, `npm run build` passed.
+Tests: `npx vitest run` → 33 files, 254 tests passed (13 new). `npm run typecheck`, `npm run lint`, `npm run build` passed.
 
 chore(admin:proxy): a "temporary" debug line printed every proxied address, with its query string, to the production pod log — done
     where: /Users/djovaisas/Projects/norbix/admin/app/api/proxy/[target]/[...path]/route.ts:97 (branch main after merge)
@@ -188,12 +200,14 @@ docs(admin:proxy): every end user of every project reaches the API from the port
 ## Rejected / moved out
 - decision(admin:social): the portal's social sign-in button keeps starting on the shared API host — rejected to change here — reason: the gateway sends any other host back to the shared one (finding above), so a portal change alone does nothing — new ticket: none yet
 - decision(gateway:admin-portal-id): custom portal domains (`admin.customer.com`) need a Hub route `/v3/admin-portal-id` that the gateway does not have — moved out — reason: domains are the owner's call and not part of "works on production" — new ticket: none yet
-- decision(devops:admin): no devops change — reason: pod, ingress, DNS and certificate already exist and the fix needs no new setting; the portal follows what the Hub's `/echo` says
+- decision(devops:admin): no devops change — reason: pod, ingress, DNS and certificate already exist, the fix needs no new setting, and the pod may already call any public address (`devops/k8s/network-policies/managed-service/default-deny.yaml`, policy `allow-norbix-egress`)
 - chore(admin:bootstrap): `/api/bootstrap` still asks the shared API host for the public config — left — reason: nothing reads that part of its answer, and without a key the call is not made
 
 ## Needs you
-- [ ] release(production): put the fixed portal on production · action: run, in order
-      `devops/release/deploy-release.sh tag 2.6.17` (with `NORBIX_TAG_WITHOUT_STAGING=1` in front if staging has not run the gateway / cloud heads), then `devops/release/deploy-release.sh eks 2.6.17`. The tag takes the newest gateway and cloud heads too. No `stacks` run is needed for this fix.
+- [ ] release(production): put the fixed portal on production · action: run, in order, with the next free version (2.6.17 on 2026-11-19)
+      `devops/release/deploy-release.sh tag 2.6.17` then `devops/release/deploy-release.sh eks 2.6.17`. No `stacks` run is needed for this fix.
+      The admin image has no release of its own: a tag always takes gateway and cloud too. On 2026-11-19 that is 25 gateway and 12 cloud commits merged since ms-v2.6.16 (other sessions' work, some of it marked "not released" on purpose) — so this is your call on timing, not only a portal fix.
+      `tag` refuses when staging does not run those gateway / cloud heads. Either run `devops/release/deploy-release.sh staging` first, or tag what staging already runs with `NORBIX_RELEASE_FROM_STAGING=1` in front, or tag heads staging never ran with `NORBIX_TAG_WITHOUT_STAGING=1` in front. The admin commit is always the newest `main`.
 - [ ] blocked(production:projects): a project to look at · action: say which project may have its Admin Portal turned on (`norbix project admin-portal enable --profile norbix-ai --project <id>`; it makes a public sign-in page), or make a test project in Frankfurt and one in Virginia
 - [ ] decision(admin:regions): Frankfurt end users go through the Virginia portal pod · action: say "fine" or ask for an admin deployment per region
 - [ ] decision(gateway:social): social sign-in for projects outside Virginia · action: say if it is needed now

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { projectApiBase } from './projectApiHost';
+import { projectApiBase, sharedApiHostOf } from './projectApiHost';
 
 const TEMPLATE = 'https://{projectHostLabel}.api.norbix.ai/v3';
 const PROJECT = 'pr_Igqs1AfB4AZIwIJ7K9xgs';
@@ -47,5 +47,19 @@ describe('projectApiBase', () => {
         PROJECT,
       ),
     ).toBeNull();
+  });
+});
+
+describe('sharedApiHostOf', () => {
+  it('answers the host the template stands on, with its port', () => {
+    expect(sharedApiHostOf(TEMPLATE)).toBe('api.norbix.ai');
+    expect(
+      sharedApiHostOf('http://{projectHostLabel}.API.norbix.test:8443/v3'),
+    ).toBe('api.norbix.test:8443');
+  });
+
+  it('answers null for no template or another shape', () => {
+    expect(sharedApiHostOf(null)).toBeNull();
+    expect(sharedApiHostOf('https://api.norbix.ai/v3')).toBeNull();
   });
 });

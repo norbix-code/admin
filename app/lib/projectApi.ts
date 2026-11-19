@@ -10,7 +10,7 @@
 // No setting switches this on: it follows what the Hub of the install says.
 import { NORBIX_HUB_URL, NORBIX_API_URL } from '@norbix.ai/ts';
 import { parseProjectIdFromHost } from '@/config/project';
-import { projectApiBase } from '@/config/projectApiHost';
+import { projectApiBase, sharedApiHostOf } from '@/config/projectApiHost';
 
 const HUB_BASE = (process.env.HUB_BASE_URL ?? NORBIX_HUB_URL).replace(
   /\/$/,
@@ -78,14 +78,31 @@ export function projectIdOf(headers: Headers): string | null {
   );
 }
 
+/** The host (with port) of API_BASE_URL; null when it is not an address. */
+function ownApiHost(): string | null {
+  try {
+    return new URL(API_BASE).host.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The API base (no version) for a project: its own host when the install has
  * per-project hosts and the id is a real project id, else the shared
  * API_BASE_URL.
+ *
+ * Only when API_BASE_URL is the same shared host the template stands on
+ * (api.<domain> and {label}.api.<domain>). A portal pointed at the API by
+ * another address — an in-network name in a Docker stack, a private service
+ * name — keeps that address: the public project host may not be reachable
+ * from where it runs.
  */
 export async function apiBaseForProject(
   projectId: string | null | undefined,
 ): Promise<string> {
   if (!projectId) return API_BASE;
-  return projectApiBase(await apiUrlTemplate(), projectId) ?? API_BASE;
+  const template = await apiUrlTemplate();
+  if (!template || sharedApiHostOf(template) !== ownApiHost()) return API_BASE;
+  return projectApiBase(template, projectId) ?? API_BASE;
 }
