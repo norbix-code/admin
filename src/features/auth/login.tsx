@@ -231,7 +231,7 @@ export function Login({ config }: { config: ProjectConfig }) {
 /**
  * Terms / Privacy links under the sign-in form. A link set in the project
  * config wins; otherwise the portal's own /legal/* page is linked when Cloud
- * has published that document (Project Settings → Access, "expose legal").
+ * has written that document (Norbix Cloud → Project Settings → Admin Portal).
  */
 function useLegalLinks(config: ProjectConfig): {
   termsUrl?: string;

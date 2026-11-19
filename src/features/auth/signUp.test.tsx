@@ -42,7 +42,7 @@ const projectConfig = {
     passkey: false,
     methods: ['email'],
     passwordPolicy: { minLength: 8 },
-    exposed: true,
+    fromProject: true,
   },
   links: {},
 } as unknown as ProjectConfig;

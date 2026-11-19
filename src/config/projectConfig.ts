@@ -5,12 +5,10 @@
 // (GET /public/projects/{id}/config) and lets the answer override them. When
 // the call fails the defaults stand, so the portal always renders.
 //
-// What the endpoint returns is gated server-side by two opt-in flags
-// (Cloud → Membership → Access): brand (default ON) and the sensitive auth
-// detail — methods + passwordPolicy (default OFF). Social providers + passkey
-// yes/no are always safe to return. When auth detail is not exposed, the
-// portal uses the defaults below (email + minLength-6 policy), which match the
-// Membership default password rule (at least 6 characters, nothing else).
+// The endpoint returns brand, sign-in methods, password rules, social
+// providers and passkey yes/no. A missing field (no password flow, an older
+// gateway) keeps the defaults below (email + minLength-6 policy), which match
+// the Membership default password rule (at least 6 characters, nothing else).
 //
 // Brand mapping (conservative): the Hub MainColor becomes the primary accent;
 // AccentColor a secondary; everything else stays neutral grey/white.
@@ -32,8 +30,8 @@ import { setProjectHeaders } from './project';
 // Grey / white / Norbix-blue, used conservatively. These render when no Hub
 // brand is available and as the base that Hub brand overrides.
 //
-// The auth defaults are what the portal shows when a project does NOT expose
-// its auth settings: email login + a default password policy of minLength 6
+// The auth defaults are what the portal shows when the answer has no auth
+// detail: email login + a default password policy of minLength 6
 // (matching the Membership default rule), no socials, no passkey.
 export const DEFAULT_PASSWORD_POLICY = { minLength: 6 };
 
@@ -66,7 +64,7 @@ const NEUTRAL_DEFAULTS: ProjectConfigBody = {
     passkey: false,
     methods: ['email'],
     passwordPolicy: DEFAULT_PASSWORD_POLICY,
-    exposed: false,
+    fromProject: false,
   },
   links: {},
 };
@@ -112,14 +110,10 @@ function merge(
   };
 }
 
-// Shape of GET /public/projects/{id}/config. The server gates fields by the
-// project's two opt-in flags: `branding` is null unless brand is exposed;
-// `auth.methods` / `auth.passwordPolicy` are null unless auth is exposed.
-// `socialProviders`, `socialSignIn` + `passkey` are always present (safe to
-// expose: a visitor sees the sign-in buttons anyway; no client id or secret).
+// Shape of GET /public/projects/{id}/config. Everything in it is what a
+// sign-in page shows anyway; no client id or secret.
 interface PublicConfigResponse {
-  // The readable project name — NOT brand-gated, so it's present even when the
-  // project does not expose its brand colors/logo. Used as the page title.
+  // The readable project name. Used as the page title.
   displayName?: string;
   branding?: {
     displayName?: string;
@@ -176,9 +170,8 @@ async function loadDynamicConfig(
 
   if (r.aiChat) out.aiChat = toAiChat(r.aiChat);
 
-  // The readable project name comes back top-level (not brand-gated). Prefer it
-  // for the display name so the portal shows the project title even when brand
-  // colors/logo are NOT exposed. Brand colors/logo are merged only when present.
+  // The readable project name comes back top-level. Brand colors/logo are
+  // merged only when present.
   const projectName =
     r.displayName ||
     r.branding?.displayName ||
@@ -192,9 +185,8 @@ async function loadDynamicConfig(
     iconUrl: r.branding?.iconUrl || undefined,
   };
 
-  // Auth: always take the safe parts; take the sensitive parts only if the
-  // server exposed them (else keep the defaults).
-  const authExposed = Boolean(r.auth?.methods || r.auth?.passwordPolicy);
+  // Auth: take what the server sent; keep the defaults for what is missing.
+  const authFromProject = Boolean(r.auth?.methods || r.auth?.passwordPolicy);
   out.auth = {
     socialProviders:
       r.auth?.socialProviders ?? NEUTRAL_DEFAULTS.auth.socialProviders,
@@ -203,7 +195,7 @@ async function loadDynamicConfig(
     methods: r.auth?.methods ?? NEUTRAL_DEFAULTS.auth.methods,
     passwordPolicy:
       r.auth?.passwordPolicy ?? NEUTRAL_DEFAULTS.auth.passwordPolicy,
-    exposed: authExposed,
+    fromProject: authFromProject,
   };
 
   return out;

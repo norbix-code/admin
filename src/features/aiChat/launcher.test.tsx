@@ -36,7 +36,7 @@ const makeStore = (aiChatConfig?: PublicAiChat) => {
         passkey: false,
         methods: ['email'],
         passwordPolicy: { minLength: 3 },
-        exposed: false,
+        fromProject: false,
       },
       links: {},
       aiChat: aiChatConfig,

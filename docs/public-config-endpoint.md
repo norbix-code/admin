@@ -1,19 +1,20 @@
-# Public project config — final design
+# Public project config
 
-How the Admin Portal learns a project's **brand** and **auth options** safely.
+How the portal learns a project's **brand** and **sign-in options** before
+anyone signs in.
 
 ## The endpoint
 
 ```
-GET /{version}/public/projects/{id}/config        (public, unauthenticated)
+GET /{version}/public/projects/{id}/config        (public, no sign-in)
 ```
 
-Returns ONLY public, non-sensitive data. What's included is gated by two opt-in
-flags the developer sets in **Cloud → Membership → Access**.
+It returns only what a sign-in page shows anyway. There are no switches: every
+project returns all of it (since 2026-11-19).
 
 ```jsonc
 {
-  // Present only if "expose brand" is ON (default ON):
+  "displayName": "Acme",
   "branding": {
     "displayName": "Acme",
     "mainColor": "#0A558C",
@@ -21,104 +22,44 @@ flags the developer sets in **Cloud → Membership → Access**.
     "logoUrl": "https://…",
     "iconUrl": "https://…"
   },
-
   "auth": {
-    // ALWAYS present (low-risk, needed to render the login screen):
     "socialProviders": ["facebook", "google"],
+    "socialSignIn": [
+      { "provider": "google", "displayName": "Google",
+        "startPath": "/v3/membership/auth/social/google?projectId=pr_…" }
+    ],
     "passkey": true,
-
-    // Present only if "expose auth settings" is ON (default OFF):
     "methods": ["email", "phone", "username"],
-    "passwordPolicy": { "minLength": 3, "minNumbers": 1, "...": "..." }
-  }
+    "passwordPolicy": { "minLength": 8, "minNumbers": 1 }
+  },
+  "aiChat": { "enabled": true, "assistants": [{ "id": "…", "name": "Support", "welcome": "Hi!" }] }
 }
 ```
 
-### What's safe vs. gated
+A field that is missing (a project with no password flow, an older gateway)
+keeps the portal's defaults: **email** sign-in and a **minLength-6** password
+policy. The code is `loadProjectConfig` in `src/config/projectConfig.ts`.
 
-| Field | Exposure |
-| --- | --- |
-| `branding.*` | gated by **expose brand** (default ON) — harmless either way |
-| `auth.socialProviders` | **always** — a login button is visible to any visitor anyway |
-| `auth.passkey` (yes/no) | **always** |
-| `auth.methods` (email/phone/username) | gated by **expose auth** (default OFF) |
-| `auth.passwordPolicy` | gated by **expose auth** (default OFF) |
+## Legal documents
 
-When **expose auth** is OFF (the default), the portal falls back to its
-defaults: **email** login + a **minLength-6** password policy (matching the
-Membership default rule: at least 6 characters, nothing else). So the default posture reveals almost nothing
-about a project's auth — only which socials/passkey exist (which the login
-screen shows regardless).
+`GET /{version}/public/projects/{id}/legal/{terms|privacy}` returns a document
+once the project has written it (Norbix Cloud → Project Settings → Admin
+Portal → Legal documents). Not written → `available: false`. The portal shows
+them at `/legal/terms` and `/legal/privacy`.
 
-### Social / passkey sign-in
+## Social sign-in
 
-A social button is just a link the backend owns. `auth.socialSignIn` lists
-the enabled social sign-in integrations of the env, each with the path that
-starts it on the API host:
+A social button is just a link the gateway owns. The portal sends the browser
+to `{API host}{startPath}&returnUrl=…`. All redirects, client ids and secrets
+stay in the gateway. More in [`social-sign-in.md`](./social-sign-in.md).
 
-```
-"socialSignIn": [
-  { "provider": "google", "displayName": "Google",
-    "startPath": "/v3/membership/auth/social/google?projectId=pr_…" }
-]
-```
+## Why public is fine
 
-The portal sends the browser to `{API host}{startPath}&returnUrl=…`. All
-redirects, client IDs and secrets live in the gateway; the README's "Social
-sign-in" section has the whole flow.
+The answer is readable by anyone who knows the project id. That is fine
+because it holds nothing a visitor of the sign-in page could not see: name,
+colours, logo, which buttons exist, the password rules the form checks. It
+never holds secrets, ids of integrations or the AI system prompt.
 
-## Why this is safe (and why it isn't "CORS")
-
-The endpoint is public and **id-addressable**, so its response is world-readable
-and harvestable at scale. That's acceptable **only because the shape is a
-deliberate allow-list**: brand + the fact that socials/passkey exist, with the
-sensitive auth detail opt-in. **CORS does not secure it** — CORS is browser-only
-(controls which web origins may *read* a response in JS); `curl`/scripts ignore
-it and the data left the server regardless. Safety = response shape, not CORS.
-
-## The three ways a portal consumes this
-
-1. **Developer passes config** (`NEXT_PUBLIC_ADMIN_CONFIG_MODE=static`) — brand + auth
-   from a bundled `config/projects/{id}.json`. No endpoint call. Fork/fast path.
-2. **Own deployment / fork** — change components/CSS directly.
-3. **Call the Hub** (`dynamic`, default) — fetch this endpoint, merge over the
-   neutral defaults. Expose-auth ON → accurate flow; OFF → defaults.
-
-All three produce the same `ProjectConfig` shape consumed by the portal.
-
----
-
-## Spec for the Cloud / Hub teams (to implement where it compiles)
-
-The frontend is complete and verified against the response shape above. The
-gateway endpoint (`Isidos.CodeMash.Services.Api/Heartbeat/PublicProjectConfig.cs`)
-is written but depends on read-model fields that must be added:
-
-### 1. Two settings flags (Hub membership settings, Cloud Access tab)
-
-Add to the project's membership/authorization settings, surfaced in **Cloud →
-Membership → Access** as two checkboxes, each with a docs link:
-
-- **"Expose brand to admin portal"** — default **ON**.
-- **"Expose auth settings to admin portal"** — default **OFF**. Docs explain
-  it reveals identifier methods + password policy (not secrets), so the portal
-  mirrors the real rules; otherwise defaults are used.
-
-### 2. Read-model fields the endpoint reads (add to `ProjectDto`)
-
-- `bool ExposeBrandToAdminPortal` (default true)
-- `bool ExposeAuthToAdminPortal` (default false)
-- `List<AuthenticationFlowSummaryDto> MembershipAuthenticationFlows` — a
-  **public-safe projection** of `AuthenticationSettings.Flows`, with per-flow:
-  - `Type` (the `FlowType` name, e.g. `"SocialLogin"`, `"EmailPasskey"`)
-  - `Provider` (for `SocialLogin` flows: the provider id)
-  - `PasswordComplexity` (for password flows: min/max counts + allowedSpecial)
-
-  Project ONLY these public-safe fields — never integration ids, secrets,
-  templates, SMS config, RP-IDs, etc.
-
-### 3. Password-policy default
-
-The Membership default rule is at least 6 characters and nothing else (owner,
-2026-11-13; it was `0 → 3` before). The portal default mirrors `minLength: 6`.
-Keep them in sync.
+**CORS does not protect this** — it only limits which web pages may read an
+answer in a browser; `curl` and scripts ignore it. The shape of the answer is
+what keeps it safe.

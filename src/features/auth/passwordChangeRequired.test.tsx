@@ -74,16 +74,20 @@ const CONFIG = {
     passkey: false,
     methods: ['email'],
     passwordPolicy: { minLength: 6 },
-    exposed: false,
+    fromProject: false,
   },
   links: {},
 } as ProjectConfig;
 
-// The project shares its auth settings with the portal ("expose auth") and
-// its stored rule is stricter than the portal default.
-const EXPOSED_CONFIG = {
+// The public config carries the project's rule, stricter than the portal
+// default.
+const PROJECT_RULE_CONFIG = {
   ...CONFIG,
-  auth: { ...CONFIG.auth, passwordPolicy: { minLength: 10 }, exposed: true },
+  auth: {
+    ...CONFIG.auth,
+    passwordPolicy: { minLength: 10 },
+    fromProject: true,
+  },
 } as ProjectConfig;
 
 function renderApp(
@@ -280,8 +284,8 @@ describe('the change-password step', () => {
     });
   });
 
-  it('with the rule shared ("expose auth"), shows it and checks it before sending', async () => {
-    await reachStep(EXPOSED_CONFIG);
+  it('with the project rule, shows it and checks it before sending', async () => {
+    await reachStep(PROJECT_RULE_CONFIG);
     expect(screen.getByText('At least 10 characters.')).toBeTruthy();
     choose('abc', 'short-pw');
 

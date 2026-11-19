@@ -60,7 +60,7 @@ const CONFIG = {
     passkey: true,
     methods: ['email'],
     passwordPolicy: { minLength: 3 },
-    exposed: false,
+    fromProject: false,
   },
   links: {},
 } as ProjectConfig;

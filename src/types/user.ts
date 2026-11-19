@@ -3,6 +3,6 @@ export interface LegalDocument {
   title?: string;
   /** Markdown source of the published document. Empty when unavailable. */
   body: string;
-  /** False when the project hasn't published / exposed this document. */
+  /** False when the project has not written this document. */
   available: boolean;
 }

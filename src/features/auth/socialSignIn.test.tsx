@@ -121,7 +121,7 @@ const CONFIG = (socialSignIn = [GOOGLE, GITHUB]) =>
       passkey: false,
       methods: ['email'],
       passwordPolicy: { minLength: 6 },
-      exposed: false,
+      fromProject: false,
     },
     links: {},
   }) as ProjectConfig;
