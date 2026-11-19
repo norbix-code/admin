@@ -59,21 +59,20 @@ interface ProjectConfig {
 
 The config carries **brand** and **auth options**. It is stored in the
 `project` Redux slice and TTL-cached in `localStorage`. The public endpoint is
-gated by two project opt-in flags — full design in
-[`public-config-endpoint.md`](./public-config-endpoint.md).
+described in [`public-config-endpoint.md`](./public-config-endpoint.md).
 
 ### Resolution order
 
 ```
 1. fresh localStorage cache (5 minutes)?   → use it
 2. neutral defaults (email login, minLength-6 policy, no socials/passkey)
-     ← merge the public /config answer (brand + safe auth; sensitive auth if opted-in)
+     ← merge the public /config answer (brand + sign-in options)
 3. the call fails → the defaults stand — never a blank screen
 ```
 
-The endpoint, `GET {API}/public/projects/{id}/config`, returns brand (if
-exposed), the **social providers** + **passkey yes/no** (always), and
-**methods + password policy** only if the project opted in. The code is
+The endpoint, `GET {API}/public/projects/{id}/config`, returns the brand, the
+**social providers**, **passkey yes/no**, the **methods** and the **password
+policy**. The code is
 `loadProjectConfig` in `src/config/projectConfig.ts`.
 
 Brand mapping is **conservative**: `mainColor` → `--admin-primary`,
@@ -86,10 +85,8 @@ Cloud's brand offers, edit the tokens and components
 The endpoint is public and **id-addressable**, so its response is world-readable
 and harvestable at scale. Safety comes from the **shape**, not CORS:
 
-- Brand + "which socials/passkey exist" are low-risk (a visitor sees the login
-  buttons anyway).
-- The sensitive auth detail (identifier **methods** + **password policy**) is
-  **opt-in** (default OFF). When off, the portal uses defaults.
+- Everything in it is shown on a sign-in page anyway: brand, which buttons
+  exist, the sign-in methods and the password rules the form checks.
 - **CORS does not secure this** — it's browser-only (controls which web origins
   may *read* a response in JS); `curl`/scripts ignore it. Never an access
   control. See [`public-config-endpoint.md`](./public-config-endpoint.md).

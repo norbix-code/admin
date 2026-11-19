@@ -37,7 +37,7 @@ describe('toAiChat (public config `aiChat`)', () => {
   });
 });
 
-describe('default password policy (project does not expose its auth detail)', () => {
+describe('default password policy (the answer has no password rule)', () => {
   it('is the Membership default rule: at least 6 characters, nothing else', () => {
     expect(DEFAULT_PASSWORD_POLICY).toEqual({ minLength: 6 });
   });

@@ -41,12 +41,11 @@ export function PasswordChangeRequired({ config }: { config: ProjectConfig }) {
   const state = location.state as PasswordChangeState | null;
   if (!state?.required) return <Navigate to={ROUTES.HOME} replace />;
 
-  // The portal gets the project's password rule only when the project shares
-  // its auth settings with the Admin Portal ("expose auth", off by default).
-  // Otherwise the rule here is just the portal's default, which may be weaker
-  // than the stored one — so it is neither shown nor checked, and the
+  // When the public config carried no password rule (no password flow, an
+  // older gateway), the rule here is just the portal's default, which may be
+  // weaker than the stored one — so it is neither shown nor checked, and the
   // gateway's answer says what is wrong.
-  const { passwordPolicy, exposed } = config.auth;
+  const { passwordPolicy, fromProject } = config.auth;
 
   const onSubmit = async (values: Values) => {
     setFailure(null);
@@ -100,7 +99,7 @@ export function PasswordChangeRequired({ config }: { config: ProjectConfig }) {
               label="New password"
               autoComplete="new-password"
               validate={
-                exposed
+                fromProject
                   ? composeValidators(
                       requiredValidator,
                       passwordPolicyValidator(passwordPolicy),
@@ -109,7 +108,7 @@ export function PasswordChangeRequired({ config }: { config: ProjectConfig }) {
               }
             />
             <p className="-mt-2 text-xs text-fg-subtle">
-              {exposed && passwordPolicy.minLength > 0
+              {fromProject && passwordPolicy.minLength > 0
                 ? `At least ${passwordPolicy.minLength} characters.`
                 : PASSWORD_RULES_UNKNOWN_HINT}
             </p>

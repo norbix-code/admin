@@ -59,7 +59,7 @@ describe('loadProjectConfig — name and branding from the public config', () =>
     expect(projectNameOf(c.branding)).toBeUndefined();
   });
 
-  it('keeps the name but no colours or logo when the brand is not exposed', async () => {
+  it('keeps the name but no colours or logo when the answer has no brand', async () => {
     servePublicConfig({ displayName: 'Plain Shop', branding: null });
     const c = await loadProjectConfig('pr_e');
     expect(c.branding).toEqual({
@@ -71,7 +71,7 @@ describe('loadProjectConfig — name and branding from the public config', () =>
     });
   });
 
-  it('maps colours, logo and icon when the brand is exposed', async () => {
+  it('maps colours, logo and icon from the brand', async () => {
     servePublicConfig({
       displayName: 'Brand Shop',
       branding: {
@@ -128,7 +128,7 @@ describe('applyBranding', () => {
       passkey: false,
       methods: ['email'],
       passwordPolicy: { minLength: 3 },
-      exposed: false,
+      fromProject: false,
     },
     links: {},
   });

@@ -2,14 +2,10 @@
 // (brand) and the login screen (auth). Sourced from the Hub project's Brand +
 // membership settings via the public config endpoint.
 //
-// What the public endpoint returns is gated by two opt-in flags the developer
-// sets in Cloud → Membership → Access:
-//   - expose brand (default ON)  → branding present
-//   - expose auth  (default OFF) → the sensitive auth detail (methods +
-//                                  passwordPolicy) present
-// Social providers list + passkey yes/no are ALWAYS returned (low-risk, needed
-// to render the login screen). When auth detail is not exposed, the portal
-// uses defaults: email/password + the default password policy (minLength 6,
+// The endpoint returns the brand, the sign-in methods, the password rules,
+// the social providers and passkey yes/no. A field that is missing (a project
+// with no password flow, an older gateway) falls back to the portal's
+// defaults: email/password + the default password policy (minLength 6,
 // matching the Membership default rule).
 
 export type SocialProviderId =
@@ -22,7 +18,7 @@ export type SocialProviderId =
 /** Identifier methods a project's auth flows accept. */
 export type AuthMethod = 'email' | 'phone' | 'username';
 
-/** Password policy the UI mirrors. Only present when the project exposes auth. */
+/** Password policy the UI mirrors. */
 export interface PasswordPolicy {
   minLength: number;
   maxLength?: number;
@@ -63,22 +59,22 @@ export interface PublicSocialSignIn {
 
 export interface ProjectAuthOptions {
   /**
-   * Which social providers exist (always exposed). Older field; the buttons
+   * Which social providers exist (always returned). Older field; the buttons
    * come from `socialSignIn`, which says how to start each one.
    */
   socialProviders: SocialProviderId[];
   /**
-   * The social sign-in buttons (always exposed). Absent → no buttons.
+   * The social sign-in buttons (always returned). Absent → no buttons.
    */
   socialSignIn?: PublicSocialSignIn[];
-  /** Whether a passkey flow is configured (always exposed). */
+  /** Whether a passkey flow is configured (always returned). */
   passkey: boolean;
-  /** Identifier methods — only when the project exposes auth; else defaults. */
+  /** Identifier methods; defaults when the project has none. */
   methods: AuthMethod[];
-  /** Password rules to mirror in the UI — only when exposed; else default. */
+  /** Password rules to mirror in the UI; the default when the project has none. */
   passwordPolicy: PasswordPolicy;
-  /** Whether the project exposed the sensitive auth detail (methods/policy). */
-  exposed: boolean;
+  /** Whether the methods and password rules came from the project (false: defaults). */
+  fromProject: boolean;
 }
 
 export interface ProjectLinks {
