@@ -75,6 +75,34 @@ export function viewIdFromHex(hex: string): string {
   return `pr_${out}`;
 }
 
+// ProjectId.ViewId: "pr_" + base62 of a 128-bit number (at most 22 digits).
+const VIEW_ID = /^pr_([0-9A-Za-z]{1,22})$/;
+
+/**
+ * The reverse of viewIdFromHex: a `pr_{base62}` view id → the gateway's
+ * ProjectId.HostLabel, `pr-` + the Guid as 32 lower-case hex digits. Null for
+ * anything that is not a view id of a Guid, so a made-up value can never
+ * become part of a host name.
+ */
+export function hostLabelFromViewId(viewId: string): string | null {
+  const match = VIEW_ID.exec(viewId.trim());
+  if (!match) return null;
+  let value = 0n;
+  for (const ch of match[1]) {
+    value = value * 62n + BigInt(BASE62.indexOf(ch));
+  }
+  if (value >> 128n !== 0n) return null;
+  // Little-endian bytes, in Guid.ToByteArray() order.
+  const bytes: string[] = [];
+  for (let i = 0; i < 16; i++) {
+    bytes.push((value & 0xffn).toString(16).padStart(2, '0'));
+    value >>= 8n;
+  }
+  // ToByteArray order → display order: reverse bytes 0-3, 4-5 and 6-7.
+  const order = [3, 2, 1, 0, 5, 4, 7, 6, 8, 9, 10, 11, 12, 13, 14, 15];
+  return `pr-${order.map((i) => bytes[i]).join('')}`;
+}
+
 /**
  * Read the project from a managed host (`pr-<hex>.admin.norbix.ai`, any case,
  * optional port). Returns the `pr_{base62}` view id, or null when the first

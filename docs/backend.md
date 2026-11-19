@@ -62,6 +62,23 @@ goes through this same-origin proxy, which re-targets to `HUB_BASE_URL` /
 secret, not a browser env. The proxy also stamps `norbix-env` from the server
 `ENV` var when the browser didn't send one (self-hosted staging/test portals).
 
+**An install with regions.** There the Hub's `/echo` announces
+`apiUrlTemplate` (`https://{projectHostLabel}.api.<domain>/v3`) and the shared
+API host refuses a project that another region processes
+(`CM-ERRORS-PROJECTS-040`). So an API call goes to the project's own host,
+`pr-<32 hex>.api.<domain>`, which DNS sends to the right region. The backend
+reads the template from the Hub (kept 5 minutes; the last good answer stays
+through a failed read), takes the project from the `norbix-project-id` /
+`nb-project-id` header or from the portal's own `pr-<hex>` host, and builds
+the host from the template plus the 32 hex digits of that id — never from
+other text in the request (`app/lib/projectApi.ts`,
+`src/config/projectApiHost.ts`). With no template in `/echo` (self-hosted,
+one API host) every call goes to `API_BASE_URL`, as before. There is no
+setting for this: it follows what the Hub says.
+
+Social sign-in is not covered by this: the gateway keeps its start and its
+callback on the shared API host (README, "Social sign-in").
+
 ## The service-user API key
 
 - Issued for a **service user** in the gateway (the Admin Portal `AdminPortalManager`
@@ -106,7 +123,7 @@ Runtime (read by the Node server — NOT baked into the bundle):
 | --- | --- |
 | `API_KEY` | service-user API key (server-only). Required for the privileged catalogs. |
 | `HUB_BASE_URL` | Hub base the backend calls, default `https://hub.norbix.ai`. |
-| `API_BASE_URL` | API base the backend calls, default `https://api.norbix.ai`. |
+| `API_BASE_URL` | API base the backend calls, default `https://api.norbix.ai`. On an install whose Hub announces `apiUrlTemplate`, a project's calls go to its own host instead (above). |
 | `API_VERSION` / `HUB_VERSION` | default `v3`. |
 | `ENV` | **optional** Norbix environment (`staging`/`test`). Unset = PROD. Self-hosted only; managed derives it from the host. |
 | `NEXT_PUBLIC_*` | anything the browser legitimately needs (e.g. config mode). |

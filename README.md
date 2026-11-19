@@ -81,6 +81,12 @@ discovered `apiUrl` at request time. The env `VITE_ADMIN_API_BASE_URL` is only
 a fallback used when the Hub is unreachable. This mirrors how the Cloud portal
 consumes `/echo`.
 
+The browser itself only ever calls the portal's own `/api/proxy/*`. On an
+install with regions the portal backend sends a project's API calls to the
+project's own host (`pr-<hex>.api.<domain>`, from `/echo` `apiUrlTemplate`),
+because the shared API host refuses a project of another region — see
+[`docs/backend.md`](./docs/backend.md).
+
 ## Social sign-in
 
 The sign-in page shows one "Continue with …" button per entry of the public

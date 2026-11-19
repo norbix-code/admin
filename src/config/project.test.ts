@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { parseProjectIdFromHost, viewIdFromHex } from './project';
+import {
+  hostLabelFromViewId,
+  parseProjectIdFromHost,
+  viewIdFromHex,
+} from './project';
 
 // Reference pairs produced by .NET with the gateway's own steps
 // (Guid.ParseExact(hex, "N") → Base62Converter.ToBase62String), so the TS
@@ -14,6 +18,29 @@ const DOTNET_PAIRS: [string, string][] = [
 describe('viewIdFromHex', () => {
   it.each(DOTNET_PAIRS)('%s → %s (same as the gateway)', (hex, viewId) => {
     expect(viewIdFromHex(hex)).toBe(viewId);
+  });
+});
+
+describe('hostLabelFromViewId', () => {
+  it.each(DOTNET_PAIRS)('%s ← %s (same as the gateway)', (hex, viewId) => {
+    expect(hostLabelFromViewId(viewId)).toBe(`pr-${hex}`);
+  });
+
+  it('reads the production project the task was checked on', () => {
+    expect(hostLabelFromViewId('pr_Igqs1AfB4AZIwIJ7K9xgs')).toBe(
+      'pr-75af6526cea04a7486d4be6198c6e709',
+    );
+  });
+
+  it('refuses anything that is not a view id of a Guid', () => {
+    expect(hostLabelFromViewId('pr_abc.evil.example')).toBeNull();
+    expect(
+      hostLabelFromViewId('pr-4c0e7b1a8f9d4e2aa1b3c5d7e9f0a1b2'),
+    ).toBeNull();
+    expect(hostLabelFromViewId('acc_5R4dlqJeXx943tOzSDEwbS')).toBeNull();
+    expect(hostLabelFromViewId('pr_')).toBeNull();
+    // 22 digits, but more than 128 bits.
+    expect(hostLabelFromViewId('pr_zzzzzzzzzzzzzzzzzzzzzz')).toBeNull();
   });
 });
 
