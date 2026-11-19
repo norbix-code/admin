@@ -77,15 +77,11 @@ gateway adds or changes an endpoint:
 > `useGetPublicProjectLegalQuery` hooks. They use the `unauthenticated` transport
 > scope (no bearer token) since they run before sign-in.
 
-## What the portal still owns (not in the SDK yet)
+## What the portal still calls by hand
 
-The SDK covers **login, logout, profile (getUser/updateUser), preferences
-(getUserPreferences/updateUserPreferences)**, plus passkeys / magic links /
-recovery codes / email verification.
-
-It does **not** yet expose password change/reset, 2FA (TOTP), or
-compliance (data export / account deletion). Those screens use a small
-app-owned service (`src/services/authService.ts`, `complianceService.ts`)
-**temporarily**. The plan is to add these to `@norbix.ai/ts` first; once they
-exist, delete those services and switch the screens to SDK hooks — try it
-locally with the pack + install above before the SDK release.
+Almost everything goes through the SDK hooks in `src/services/norbix.ts`
+(sign-in, sign-up, profile, preferences, password change and reset, passkeys,
+e-mail verification). The few calls the SDK does not have yet live in
+`src/services/publicApi.ts` (the invitation finish and the legal documents)
+and `src/services/portalApi.ts`. When the SDK gets them, move the screen to
+the SDK hook and delete the hand-written call.

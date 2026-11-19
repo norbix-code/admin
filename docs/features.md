@@ -63,6 +63,7 @@ PUBLIC
   /sign-in               → sign-in (password, social, passkey)
   /sign-in/reset         → ask for a password reset e-mail
   /sign-in/reset/confirm → set a new password with the token from the e-mail
+  /sign-up               → a visitor creates an account (when the project allows it)
   /sign-up/invitation    → an invited user finishes registration
   /oauth/callback        → social sign-in return, account link return,
                            passkey recovery link
