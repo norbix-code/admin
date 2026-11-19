@@ -1,9 +1,8 @@
 name: Docker image
 
 on:
-  # Manual only — ordinary pushes/PRs no longer docker-build. The staging
-  # tag flow (staging.yml) and release tags build the real images and
-  # catch Dockerfile breakage where it matters.
+  # Run it by hand to check that the Docker image still builds and has no
+  # known high or critical security issues.
   workflow_dispatch:
 
 permissions:
@@ -18,8 +17,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # One build serves every edition (managed, enterprise, community): the
-      # edition is read at runtime from the Hub's /echo, not at build time.
       - name: Build image
         uses: docker/build-push-action@v6
         with:
