@@ -1,6 +1,6 @@
 // Public, unauthenticated project configuration that drives the portal's look
 // (brand) and the login screen (auth). Sourced from the Hub project's Brand +
-// membership settings via the public endpoint, or from a bundled static config.
+// membership settings via the public config endpoint.
 //
 // What the public endpoint returns is gated by two opt-in flags the developer
 // sets in Cloud → Membership → Access:
@@ -94,12 +94,5 @@ export interface ProjectConfig {
   links: ProjectLinks;
 }
 
-/** Static / bundled payload shape = ProjectConfig without projectId. */
-export type StaticProjectConfig = Omit<ProjectConfig, 'projectId'>;
-
-// ── Back-compat aliases ─────────────────────────────────────────────
-export type LoginConfig = ProjectConfig;
-export type LoginBranding = ProjectBranding;
-export type LoginAuthOptions = ProjectAuthOptions;
-export type LoginLinks = ProjectLinks;
-export type StaticLoginConfig = StaticProjectConfig;
+/** A project config without the project id: the part defaults and the public config fill in. */
+export type ProjectConfigBody = Omit<ProjectConfig, 'projectId'>;

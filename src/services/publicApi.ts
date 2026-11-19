@@ -1,9 +1,6 @@
-// Public (unauthenticated) endpoints: published legal documents. The login
-// config itself is loaded by config/loginConfig.ts (static-then-dynamic), not
-// here, because it must resolve before the store is even useful.
-//
-// Like the authed api, the base URL is resolved at request time from the
-// /echo response (config slice), falling back to the env value.
+// Public (unauthenticated) endpoints: the published legal documents and the
+// invitation finish. Calls go through the portal's proxy, like everything
+// else.
 
 import {
   createApi,

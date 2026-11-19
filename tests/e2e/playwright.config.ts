@@ -53,7 +53,6 @@ export default defineConfig({
       cwd: REPO_ROOT,
       env: {
         PROJECT_ID: 'pr_e2e',
-        NEXT_PUBLIC_ADMIN_CONFIG_MODE: 'dynamic',
         HUB_BASE_URL: FAKE_API,
         API_BASE_URL: FAKE_API,
         HUB_VERSION: 'v3',

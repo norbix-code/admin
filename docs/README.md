@@ -9,7 +9,7 @@ developer's customers) sign in to. To get it running, start with the
 | --- | --- |
 | [`architecture.md`](./architecture.md) | The full picture: the four surfaces (Hub, API, Cloud, Admin), how Admin fits, who hosts it, where the project id comes from. |
 | [`backend.md`](./backend.md) | The portal's own backend: the two required variables, the setup screen, `/api/bootstrap`, the proxy, the service user's key. |
-| [`login-resolution.md`](./login-resolution.md) | How the sign-in screen is built — dynamic (public config) vs static (bundled JSON) config, the resolution order, and caching. |
+| [`login-resolution.md`](./login-resolution.md) | How the sign-in screen is built from the project's public config: the resolution order and caching. |
 | [`social-sign-in.md`](./social-sign-in.md) | Social sign-in, linking an account, PKCE, the passkey recovery link. |
 | [`theming.md`](./theming.md) | Change colours, fonts and components. |
 | [`features.md`](./features.md) | The feature areas: Auth management, Profile / contact info, Communication preferences (rendered from Cloud's structure), Legal pages. With the route map. |

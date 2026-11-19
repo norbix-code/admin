@@ -62,38 +62,24 @@ The config carries **brand** and **auth options**. It is stored in the
 gated by two project opt-in flags — full design in
 [`public-config-endpoint.md`](./public-config-endpoint.md).
 
-### Config mode — `NEXT_PUBLIC_ADMIN_CONFIG_MODE`
-
-- **`dynamic` (default).** Start from the **neutral defaults**, fetch
-  `GET {API}/public/projects/{id}/config`, and override. The endpoint returns
-  brand (if exposed), the **social providers** + **passkey yes/no** (always),
-  and **methods + password policy** only if the project opted in. If the call
-  fails, the defaults stand — the portal always renders.
-- **`static`.** Load brand + auth **entirely** from the bundled
-  `config/projects/{id}.json`, **never** calling the endpoint. For full control
-  and the fastest paint. You can also edit components/CSS.
-
-> **Not complete in the Next.js build.** The bundled
-> `config/projects/{id}.json` file is read with a Vite-only feature
-> (`import.meta.glob`, `src/config/projectConfig.ts`). Under Next.js the file
-> is not loaded: `static` then means "the neutral defaults, no call", and in
-> `dynamic` mode the static layer is skipped. Use `dynamic` unless you wire
-> the file in yourself.
-
-### Resolution order (dynamic mode)
+### Resolution order
 
 ```
-1. fresh localStorage cache?            → use it
+1. fresh localStorage cache (5 minutes)?   → use it
 2. neutral defaults (email login, minLength-6 policy, no socials/passkey)
-     ← merge bundled static config (if config/projects/{id}.json exists)
-     ← merge public /config response (brand + safe auth; sensitive auth if opted-in)
-   (each layer overrides only the fields it sets)
-3. endpoint fails → defaults (+ static) stand — never a blank screen
+     ← merge the public /config answer (brand + safe auth; sensitive auth if opted-in)
+3. the call fails → the defaults stand — never a blank screen
 ```
+
+The endpoint, `GET {API}/public/projects/{id}/config`, returns brand (if
+exposed), the **social providers** + **passkey yes/no** (always), and
+**methods + password policy** only if the project opted in. The code is
+`loadProjectConfig` in `src/config/projectConfig.ts`.
 
 Brand mapping is **conservative**: `mainColor` → `--admin-primary`,
-`accentColor` → `--admin-accent`; else neutral grey/white. A JSON schema for
-the static file lives at `config/login-config.schema.json`.
+`accentColor` → `--admin-accent`; else neutral grey/white. To go beyond what
+Cloud's brand offers, edit the tokens and components
+([`theming.md`](./theming.md)).
 
 ### Security: public endpoint = strict allow-list, not CORS
 
@@ -118,13 +104,3 @@ and harvestable at scale. Safety comes from the **shape**, not CORS:
 - `branding.primaryColor` themes the accent color via a CSS custom property,
   so a project's portal looks on-brand without a rebuild.
 - `links.termsUrl` / `privacyUrl` → footer links to the public documents.
-
-## 4. Why two config modes
-
-- **Dynamic** keeps the login screen in step with what the project owner sets
-  in Cloud (brand, sign-in methods) with no redeploy.
-- **Static** gives a fast, offline-capable, auditable login screen for an
-  owner who is happy to redeploy on change.
-
-Both share the **same** `ProjectConfig` type and the **same** rendering code —
-only the *source* differs, behind one `loadProjectConfig(projectId)` function.

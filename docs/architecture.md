@@ -100,23 +100,15 @@ For a project "example":
 | End-user API | `api.norbix.ai` (per project: `pr-<32 hex>.api.norbix.ai`) |
 | Tenant/dev Hub | `hub.norbix.ai` |
 
-## 4. Login screen: dynamic vs static
+## 4. Login screen
 
-The unauthenticated login screen must reflect the **membership settings**
-defined for the project in Cloud — e.g. if the project enables email/password
-**and** Google + GitHub social logins, the screen shows an email/password form
-**plus** those social icons. There are two ways to obtain that config; both
-are supported (see [`login-resolution.md`](./login-resolution.md) for detail).
-
-1. **Dynamic (default).** The portal calls a **public** API endpoint for the
-   configured project's login settings, then renders the screen at runtime. No
-   redeploy needed when the developer changes settings in Cloud. Slightly
-   slower first paint (one network round-trip before the form appears).
-
-2. **Static.** You ship a `config/projects/{projectId}.json` describing the
-   login screen and redeploy. The portal renders from the bundled config
-   **without** a network call — fastest paint. (Not complete in the Next.js
-   build: see the note in [`login-resolution.md`](./login-resolution.md).)
+The unauthenticated login screen reflects the **membership settings** defined
+for the project in Cloud — e.g. if the project enables email/password **and**
+Google + GitHub social logins, the screen shows an email/password form
+**plus** those social buttons. The portal asks a **public** API endpoint for
+the configured project's settings and renders the screen at runtime, so a
+change in Cloud needs no redeploy. Detail:
+[`login-resolution.md`](./login-resolution.md).
 
 ## 5. Deployment
 

@@ -141,20 +141,16 @@ Runtime (read by the Node server — NOT baked into the bundle):
 | `API_BASE_URL` | API base the backend calls, default `https://api.norbix.ai`. When the Hub announces `apiUrlTemplate`, the project's calls go to its own host instead (above). |
 | `API_VERSION` / `HUB_VERSION` | default `v3`. |
 
-Build time (inlined into the browser bundle by `next build`):
-
-| Var | Purpose |
-| --- | --- |
-| `NEXT_PUBLIC_ADMIN_CONFIG_MODE` | `dynamic` (default). `static` is not complete in the Next.js build — see [`login-resolution.md`](./login-resolution.md). |
+Nothing is baked into the browser bundle at build time.
 
 > `IS_DEV` (in `src/config/env.ts`) is a separate, build-time "local dev build"
-> flag (`NODE_ENV !== 'production'`). It only toggles Redux DevTools and the
-> skip-remote config heuristic — it is NOT the Norbix `ENV` above.
+> flag (`NODE_ENV !== 'production'`). It only toggles Redux DevTools and
+> request-error logging — it is NOT the Norbix `ENV` above.
 
 ## Single Docker image
 
-`deployments/Dockerfile` is multi-stage → `next build` with
-`output: 'standalone'` → a minimal Node runtime image that serves UI + backend on
+`deployments/Dockerfile` is multi-stage → `next build` with the standalone
+output (`NEXT_OUTPUT=standalone`) → a minimal Node runtime image that serves UI + backend on
 one port (3100), non-root. No nginx, no second container.
 
 ```bash
@@ -171,14 +167,8 @@ docker run -p 3100:3100 -e PROJECT_ID=pr_… -e API_KEY=… my-admin-portal
   through `/api/proxy/*`.
 - Change the pages, the theme and the texts: it is your copy of the code.
 
-## Migration status (Vite → Next, phased)
+## How the UI is mounted
 
-- ✅ Next app router + `output: 'standalone'` config, root tsconfig, Docker.
-- ✅ `/api/bootstrap` (brand + auth + roles + marketing-pref catalog).
-- ✅ `/api/proxy/*` full reverse proxy; browser SDK points at it.
-- ⏳ Port the existing screens (`src/features/*`, `src/App.tsx` router) into
-  `app/` routes. The Vite entry still exists during migration; the old build
-  scripts are kept under `_vite:*` in `package.json` and removed once the port
-  completes.
-- ⏳ Wire the UI to consume `/api/bootstrap` for the preferences/roles screens;
-  user-specific reads/writes stay direct via the SDK + JWT through `/api/proxy`.
+The screens are a React Router app (`src/App.tsx`, `src/features/*`). The one
+Next.js page, `app/[[...slug]]/page.tsx`, mounts it in the browser for every
+path (`app/SpaShell.tsx`). Route handlers under `app/api/` run on the server.

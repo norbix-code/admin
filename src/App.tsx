@@ -88,8 +88,8 @@ export default function App() {
       }
       if (cancelled) return;
 
-      // Resolve brand + auth config (defaults → endpoint override, or
-      // static-only per CONFIG_MODE). Always returns a usable config.
+      // Brand + sign-in options: defaults, overridden by the project's public
+      // config. Always returns a usable config.
       const config = await loadProjectConfig(projectId);
       if (cancelled) return;
 

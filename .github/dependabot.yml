@@ -13,8 +13,7 @@ updates:
         patterns: ['@reduxjs/toolkit', 'react-redux', 'redux-persist']
       tooling:
         patterns:
-          - 'vite'
-          - '@vitejs/*'
+          - 'vitest'
           - 'typescript'
           - 'typescript-eslint'
           - 'eslint*'

@@ -6,6 +6,7 @@ dist
 
 # Next.js
 .next/
+*.tsbuildinfo
 
 # Playwright
 test-results/
