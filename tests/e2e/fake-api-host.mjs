@@ -11,7 +11,7 @@
 //                     {"linkConflict":true} answers the link finish with 409
 //                     CM-ERRORS-MEMBERSHIP-055
 //   GET  /__provider?next=… → the "provider": sends the browser on to `next`
-//   PKCE (gateway step 16): a code whose start carried `codeChallenge` is
+//   PKCE: a code whose start carried `codeChallenge` is
 //        exchanged / finished only with the matching `codeVerifier`, else
 //        CM-ERRORS-MEMBERSHIP-058; a code started without one needs none
 //   POST /v3/membership/userauth/recovery/magic-link/consume → token

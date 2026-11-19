@@ -28,8 +28,7 @@ const clean = (value: string): string | undefined => {
 /**
  * Behind the link in the invitation e-mail
  * (`/sign-up/invitation#token=…&email=…`). The invited user chooses a
- * password and may change the full name and the salutation the admin entered
- * (owner decision 2026-10-15 #3, gateway docs/tasks/owner-answers-2-3-0.md):
+ * password and may change the full name and the salutation the admin entered:
  * both are optional — empty keeps the admin's values. The e-mail is shown
  * read-only; it cannot change. The one-time token and the e-mail are read
  * once — fragment first, then the query — and taken out of the address bar at

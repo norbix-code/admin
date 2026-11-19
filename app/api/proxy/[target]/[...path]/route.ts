@@ -59,9 +59,6 @@ const FORWARD_REQUEST_HEADERS = [
   'norbix-project-id',
   'norbix-account-id',
   'norbix-db-id',
-  // Legacy names kept for older gateways.
-  'x-cm-projectid',
-  'x-cm-accountid',
   'norbix-env',
   'nb-region',
   // Server-sent events: EventSource sends Last-Event-ID on reconnect so the
@@ -85,11 +82,7 @@ function isEventStream(res: Response): boolean {
 }
 
 /** The request headers that name a project. */
-const PROJECT_HEADERS = [
-  'norbix-project-id',
-  'nb-project-id',
-  'x-cm-projectid',
-];
+const PROJECT_HEADERS = ['norbix-project-id', 'nb-project-id'];
 
 /**
  * The project header value that is not the configured project, if any.

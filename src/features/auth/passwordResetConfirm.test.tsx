@@ -2,7 +2,7 @@
 // The password-reset link (/sign-in/reset/confirm#token=…): the page reads
 // the one-time token from the fragment (query for links sent before), takes
 // it out of the address bar at once and sends it only in the confirm POST
-// body (gateway docs/tasks/link-tokens-in-fragment.md).
+// body.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   cleanup,

@@ -1,5 +1,5 @@
 /**
- * PKCE between the portal and the gateway (gateway c24dcc4d9, step 16).
+ * PKCE between the portal and the gateway.
  *
  * Every sign-in start and every link start sends an S256 `codeChallenge`;
  * the exchange and the link finish send the matching `codeVerifier`. The

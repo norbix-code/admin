@@ -69,7 +69,7 @@ export const publicApi = createApi({
         available: r.available ?? false,
       }),
     }),
-    // An invited user finishes registration (gateway registration-settings):
+    // An invited user finishes registration:
     // POST /membership/auth/invitation/finish — anonymous, the one-time token
     // is the proof and goes only in the body. Hand-written until the SDK
     // ships `finishInvitation`; then move it to services/norbix.ts.
@@ -90,7 +90,7 @@ export const publicApi = createApi({
 export interface FinishInvitationBody {
   token: string;
   password: string;
-  /** Optional: replaces the full name the admin entered (owner decision 2026-10-15 #3). */
+  /** Optional: replaces the full name the admin entered. */
   fullName?: string;
   /** Optional: how e-mails greet the user; empty keeps the admin's (or the name). */
   salutation?: string;

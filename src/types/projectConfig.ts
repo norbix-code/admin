@@ -68,8 +68,7 @@ export interface ProjectAuthOptions {
    */
   socialProviders: SocialProviderId[];
   /**
-   * The social sign-in buttons (always exposed). Absent in a config cached
-   * before the field existed and on older gateways → no buttons.
+   * The social sign-in buttons (always exposed). Absent → no buttons.
    */
   socialSignIn?: PublicSocialSignIn[];
   /** Whether a passkey flow is configured (always exposed). */
