@@ -38,7 +38,9 @@ beforeAll(async () => {
   );
   const { port } = upstream.address() as AddressInfo;
   vi.stubEnv('API_BASE_URL', `http://127.0.0.1:${port}`);
-  vi.spyOn(console, 'log').mockImplementation(() => {});
+  // The stand-in also answers /v3/echo, with no apiUrlTemplate: an install
+  // with one API host, so every call goes to API_BASE_URL.
+  vi.stubEnv('HUB_BASE_URL', `http://127.0.0.1:${port}`);
   route = await import('./route');
 });
 

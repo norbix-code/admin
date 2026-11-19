@@ -5,6 +5,10 @@
 //   browser  →  /api/proxy/api/v3/membership/...   →  API_BASE_URL/v3/...
 //   browser  →  /api/proxy/hub/v3/echo             →  HUB_BASE_URL/v3/...
 //
+// On an install with regions the API call goes to the project's own host
+// (pr-<hex>.api.<domain>, from the Hub's /echo `apiUrlTemplate`): the shared
+// host refuses a project another region processes. See app/lib/projectApi.ts.
+//
 // The user's own JWT is forwarded as-is (Authorization), so authenticated user
 // data still flows on the user's behalf — the backend does not inject the
 // service key here (that is only for the privileged catalog in /api/bootstrap).
@@ -12,16 +16,13 @@
 // Norbix headers the SDK sends. If the request has no `norbix-env` header and
 // the server sets ENV (a self-hosted staging/test portal), the proxy stamps it.
 import { NextRequest } from 'next/server';
-import { NORBIX_HUB_URL, NORBIX_API_URL } from '@norbix.ai/ts';
+import { NORBIX_HUB_URL } from '@norbix.ai/ts';
+import { apiBaseForProject, projectIdOf } from '../../../../lib/projectApi';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const HUB_BASE = (process.env.HUB_BASE_URL ?? NORBIX_HUB_URL).replace(
-  /\/$/,
-  '',
-);
-const API_BASE = (process.env.API_BASE_URL ?? NORBIX_API_URL).replace(
   /\/$/,
   '',
 );
@@ -73,8 +74,11 @@ function isEventStream(res: Response): boolean {
     .startsWith('text/event-stream');
 }
 
-function baseFor(target: string): string | null {
-  if (target === 'api') return API_BASE;
+async function baseFor(
+  target: string,
+  req: NextRequest,
+): Promise<string | null> {
+  if (target === 'api') return apiBaseForProject(projectIdOf(req.headers));
   if (target === 'hub') return HUB_BASE;
   return null;
 }
@@ -84,7 +88,7 @@ async function handle(
   ctx: { params: Promise<{ target: string; path?: string[] }> },
 ): Promise<Response> {
   const { target, path } = await ctx.params;
-  const base = baseFor(target);
+  const base = await baseFor(target, req);
   if (!base) {
     return new Response('Unknown proxy target', { status: 404 });
   }
@@ -92,11 +96,6 @@ async function handle(
   const upstreamPath = (path ?? []).map(encodeURIComponent).join('/');
   const search = req.nextUrl.search; // includes leading '?' or ''
   const upstreamUrl = `${base}/${upstreamPath}${search}`;
-
-  // TEMP DIAGNOSTIC (remove after debugging): prove which host the proxy
-  // forwards to. If a local login shows api.norbix.ai here, API_BASE_URL is not
-  // in effect — restart `next dev` after setting it in .env.
-  console.log(`[PROXY-DEBUG] ${req.method} ${target} -> ${upstreamUrl}`);
 
   const headers = new Headers();
   for (const name of FORWARD_REQUEST_HEADERS) {
