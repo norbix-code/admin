@@ -89,7 +89,8 @@ This does two things for you:
 
 - It adds your address to the project's allowed origins (CORS), so sign-in
   works from your portal.
-- E-mail links (password reset, invitation) point to your portal.
+- E-mail links point to your portal: password reset, invitation, and the
+  footer links of campaign emails (preferences, unsubscribe, view in web).
 
 Done. Your users can sign in.
 
