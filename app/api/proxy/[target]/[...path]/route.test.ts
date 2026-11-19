@@ -1,5 +1,5 @@
 // BFF proxy route: forwards the project header the API host reads and passes
-// server-sent events through as a live stream (tracker step 28). A real local
+// server-sent events through as a live stream. A real local
 // HTTP server stands in for the gateway.
 import { createServer, IncomingHttpHeaders, Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -25,7 +25,7 @@ beforeAll(async () => {
       // The second event is written only when the test asks for it — so the
       // test proves the first one arrived before the upstream finished.
       releaseSecondEvent = () => {
-        res.write('data: cmd.ai.chat.turn.token {"text":"Hi"}\n\n');
+        res.write('data: cmd.update {"text":"Hi"}\n\n');
         res.end();
       };
       return;
@@ -61,7 +61,7 @@ const call = (path: string[], headers: Record<string, string>) =>
 
 describe('BFF proxy', () => {
   it('forwards nb-project-id, the bearer token and the SSE reconnect id; drops cookies', async () => {
-    const res = await call(['v3', 'ai', 'chat', 'availability'], {
+    const res = await call(['v3', 'membership', 'users', 'me'], {
       'nb-project-id': 'pr_abc',
       'norbix-project-id': 'pr_abc',
       authorization: 'Bearer t1',
@@ -71,7 +71,7 @@ describe('BFF proxy', () => {
     });
 
     expect(res.status).toBe(200);
-    expect(seen.url).toBe('/v3/ai/chat/availability');
+    expect(seen.url).toBe('/v3/membership/users/me');
     expect({
       nbProjectId: seen.headers?.['nb-project-id'],
       norbixProjectId: seen.headers?.['norbix-project-id'],
@@ -110,11 +110,11 @@ describe('BFF proxy', () => {
       if (done) break;
       rest += decoder.decode(value);
     }
-    expect(rest).toBe('data: cmd.ai.chat.turn.token {"text":"Hi"}\n\n');
+    expect(rest).toBe('data: cmd.update {"text":"Hi"}\n\n');
   });
 
   it('leaves the cache header of a normal JSON answer alone', async () => {
-    const res = await call(['v3', 'ai', 'chat', 'sessions'], {});
+    const res = await call(['v3', 'membership', 'users', 'me'], {});
     expect(res.headers.get('cache-control')).toBeNull();
     expect(res.headers.get('x-accel-buffering')).toBeNull();
   });

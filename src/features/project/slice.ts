@@ -5,7 +5,7 @@
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '@/app/store';
-import type { ProjectConfig, PublicAiChat } from '@/types/projectConfig';
+import type { ProjectConfig } from '@/types/projectConfig';
 
 interface ProjectState {
   /** The configured project id (PROJECT_ID, read from the page), set at boot. */
@@ -42,11 +42,5 @@ export const selectProjectBranding = (state: RootState) =>
 
 export const selectProjectAuth = (state: RootState) =>
   state.project.config?.auth ?? null;
-
-/** End-user AI chat from the public config; off when absent (older gateway). */
-const AI_CHAT_OFF: PublicAiChat = { enabled: false, assistants: [] };
-
-export const selectPublicAiChat = (state: RootState): PublicAiChat =>
-  state.project.config?.aiChat ?? AI_CHAT_OFF;
 
 export default slice.reducer;

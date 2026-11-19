@@ -33,10 +33,8 @@ import { SecurityOverview } from '@/features/auth/security';
 import { PasswordChangeRequired } from '@/features/auth/passwordChangeRequired';
 import { Profile } from '@/features/profile/profile';
 import { Preferences } from '@/features/preferences/preferences';
-import { Privacy } from '@/features/compliance/compliance';
-import { LegalDocumentPage } from '@/features/compliance/legal';
+import { LegalDocumentPage } from '@/features/legal/legal';
 import { Dashboard, NotSetUp } from '@/features/dashboard/dashboard';
-import { PRIVACY_PAGE_ENABLED } from '@/config/structure';
 
 type BootState =
   | { status: 'loading' }
@@ -221,19 +219,6 @@ export default function App() {
               </RequireAuth>
             }
           />
-          {/* Hidden until /me/compliance* exist (PRIVACY_PAGE_ENABLED). */}
-          {PRIVACY_PAGE_ENABLED && (
-            <Route
-              path={ROUTES.PRIVACY}
-              element={
-                <RequireAuth>
-                  <AppLayout>
-                    <Privacy />
-                  </AppLayout>
-                </RequireAuth>
-              }
-            />
-          )}
 
           <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
         </Routes>

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
 /**
- * Admin Portal chat smoke (item admin-chat, tracker step 27).
+ * Browser tests of the portal against a fake Norbix.
  *
  *   npm run test:e2e           # functional + pixel compare
  *   npm run test:e2e:update    # re-bless the golden PNGs
@@ -34,7 +34,6 @@ export default defineConfig({
   timeout: 90_000,
   expect: {
     timeout: 15_000,
-    // Tight budget: a chat losing a block (the table, the toolbar) must fail.
     toHaveScreenshot: { maxDiffPixelRatio: 0.001, animations: 'disabled' },
   },
   reporter: [['list']],

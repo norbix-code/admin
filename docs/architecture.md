@@ -40,8 +40,8 @@ apps.
 developer/tenant control plane; the API is the end-user data plane. The Admin
 Portal only ever uses end-user-scoped API endpoints, plus a small number of
 **public** API endpoints to render the login screen before the user is signed
-in. Its own backend also reads three things from the Hub with the service
-user's key: the portal layout, the role names and the communication structure
+in. Its own backend also reads the communication structure from the Hub with the
+service user's key
 ([`backend.md`](./backend.md)).
 
 ## 2. The problem Admin solves
@@ -50,12 +50,11 @@ A developer builds a project in Norbix (via Cloud). They may not have time to
 build their own user-facing dashboard. The Admin Portal gives their users a
 ready-made portal for the common things:
 
-- **Auth management** — change / reset password, 2FA.
+- **Auth management** — change / reset password, passkeys.
 - **Profile / contact info** — edit `UserDto` profile fields.
 - **Marketing preferences** — which marketing and transactional messages they
   want to receive.
-- **Compliance** — request a copy of the data collected about them, request
-  account removal, and read the project's public terms & policies.
+- **Legal pages** — read the project's public terms & policies.
 
 It also gives the project a public, hostable **terms & policies** page. The
 developer authors policies in Norbix and publishes them; the resulting public
@@ -81,7 +80,7 @@ admin.example.com   ──►   your copy of this portal   ──►   hub.norbi
 - **The key stays on the server.** `API_KEY` belongs to the project's Admin
   Portal service user (role `AdminPortalManager`). The browser never sees it.
 - **The browser talks only to the portal.** Every call goes to the portal's
-  own backend (`/api/proxy/*`, `/api/structure`, `/api/bootstrap`), which
+  own backend (`/api/proxy/*`, `/api/bootstrap`), which
   calls the Hub / API.
 - **The project must know the portal's address.** In Norbix Cloud the owner
   saves the portal's address as the project's "Admin portal URL". That adds it
@@ -169,20 +168,10 @@ by the gateway repo; this is the contract Admin depends on.
   buttons, branding, links to published terms/policies), and the published
   terms & policies documents themselves.
 - **Auth:** sign-in (credentials + OAuth callback), sign-out, password reset
-  request + confirm, password change, 2FA enroll / verify / disable.
+  request + confirm, password change, passkeys.
 - **Profile:** read & update the end-user `UserDto` profile / contact fields.
 - **Marketing preferences:** read & update marketing-state per channel /
   subscription.
-- **Compliance:** request data export ("what do you hold about me"), request
-  account deletion, read consent/data-usage info.
-
 All authenticated calls are **end-user-scoped** and carry the project context
 (the configured project id, sent as the `nb-project-id` /
 `norbix-project-id` headers).
-
-## 8. Future: own records
-
-A later phase adds an "own records" area: the end user sees database records
-that belong to them, and — gated by their permissions — can create/read/
-update/delete their own records. This reuses the same API data-plane endpoints
-the SDKs already expose. Documented as a non-MVP item in `features.md`.

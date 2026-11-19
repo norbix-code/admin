@@ -47,7 +47,7 @@ const FORWARD_REQUEST_HEADERS = [
   'accept',
   // The project header the API host's global request filter reads
   // (EventMetadataHeaderNames.ProjectId). Without it a data call is not
-  // scoped to the project by header — e.g. /ai/chat/* and /event-stream.
+  // scoped to the project by header.
   'nb-project-id',
   // Canonical tenant-scope headers (AuthStatics.*HeaderKey on the gateway).
   // The credentials auth provider only reads `norbix-project-id`; without it

@@ -12,8 +12,6 @@ The signed-in user manages their own credentials and account security.
 - **Reset password** — request a reset email; confirm with the token from the
   link. Also reachable unauthenticated from the login screen.
 - **Passkeys** — add, rename, revoke (behind email verification).
-- **Two-factor (2FA)** — not built yet (Membership task); the portal does not
-  show or mention it.
 - **Sessions / sign-out** — sign out of the current session. (Listing/revoking
   other sessions is a later enhancement if the API exposes it.)
 
@@ -46,60 +44,37 @@ Tags in no group are Cloud's "orphaned tags". The portal renders exactly that:
 A switch writes `blockedTags[<delivery channel>]` (full replacement) through
 `UpdateUserPreferences` — the gateway checks it per delivery channel
 (`Campaign.cs`). The structure comes from `/api/bootstrap`, read server-side
-with the service-user key; without a key only the global switch shows.
+with the service-user key; when that read fails only the global switch shows.
 
 Screen: `/preferences`.
 
-## 4. Compliance / privacy
+## 4. Legal pages
 
-**Hidden for now** (`PRIVACY_PAGE_ENABLED = false` in `src/config/structure.ts`):
-the page called `/me/compliance`, `/me/compliance/export` and
-`/me/compliance/delete`, which the gateway does not have. Cloud defines the
-privacy flows first (Project Settings → Access / legal documents, Compliance
-settings); the portal then renders what Cloud defines. The public
-`/legal/terms` and `/legal/privacy` pages stay, and the sign-in screen links
-them when the project published the document.
+The project's published terms and privacy policy, readable with **no
+sign-in** at `/legal/terms` and `/legal/privacy` (short aliases `/terms` and
+`/policies`). The addresses are stable, so they can be used in app-store
+listings. The sign-in screen links them when the project published the
+document.
 
-Planned self-service data rights:
-
-- **Data export** — "what data do you hold about me" → request an export;
-  show request status / download when ready.
-- **Account removal** — request account deletion (with the project's
-  configured grace/confirmation flow).
-- **Data-usage / consent** — show what categories of data are collected and
-  the consents on record.
-- **Public terms & policies** — read the project's published terms and
-  privacy policy. These are also reachable **publicly** (no auth) at
-  `/legal/terms` and `/legal/privacy`, so the URLs can be used in app-store
-  listings.
-
-Screens: `/privacy` (authed hub for export/deletion/consent),
-`/legal/terms`, `/legal/privacy` (public).
-
-## 5. (Later) Own records
-
-Not in the MVP. The user sees database records that belong to them and, gated
-by their permissions, can CRUD their own records. Reuses the existing API
-data-plane endpoints exposed through the SDKs. Tracked in
-`implementation-plan.md` as a post-MVP phase.
-
-## Route map (MVP)
+## Route map
 
 ```
-PUBLIC (unauth)
-  /                      → if authed: dashboard; else: redirect to /sign-in
-  /sign-in               → dynamic/static login screen
-  /sign-in/reset         → request password reset
-  /sign-in/reset/confirm → confirm reset with token
-  /oauth/callback        → social login return
-  /legal/terms           → published terms (public)
-  /legal/privacy         → published privacy policy (public)
-  (no project in host)   → blank placeholder
+PUBLIC
+  /sign-in               → sign-in (password, social, passkey)
+  /sign-in/reset         → ask for a password reset e-mail
+  /sign-in/reset/confirm → set a new password with the token from the e-mail
+  /sign-up/invitation    → an invited user finishes registration
+  /oauth/callback        → social sign-in return, account link return,
+                           passkey recovery link
+  /legal/terms           → published terms
+  /legal/privacy         → published privacy policy
 
-AUTHED
-  /            → dashboard (cards linking to the four areas)
-  /security    /security/password   /security/2fa
+SIGNED IN (anything else redirects to /sign-in)
+  /                      → home: cards linking to the pages below
   /profile
+  /security              → password, passkeys, linked sign-in methods
+  /security/password     → forced password change after sign-in
   /preferences
-  /privacy
+
+Not set up (PROJECT_ID or API_KEY missing) → the setup screen on every path
 ```

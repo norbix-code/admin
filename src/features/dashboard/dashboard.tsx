@@ -1,20 +1,23 @@
 import { Link } from 'react-router-dom';
-import { skipToken } from '@reduxjs/toolkit/query';
 import { PageHeader, Card } from '@/components/ui';
-import { useAppSelector } from '@/app/hooks';
-import { selectSelectedProjectId } from '@/features/project/slice';
-import { useGetStructureQuery } from '@/services/portalApi';
-import { navCardsFromStructure } from '@/config/structure';
+import { ROUTES } from '@/routes';
+
+// The pages a signed-in user can open. Add a card here when you add a page.
+const CARDS = [
+  {
+    to: ROUTES.PROFILE,
+    title: 'Profile',
+    desc: 'Update your contact information.',
+  },
+  { to: ROUTES.SECURITY, title: 'Security', desc: 'Password and passkeys.' },
+  {
+    to: ROUTES.PREFERENCES,
+    title: 'Preferences',
+    desc: 'Choose which messages you receive.',
+  },
+];
 
 export function Dashboard() {
-  const projectId = useAppSelector(selectSelectedProjectId);
-  // RTK Query owns the fetch + cache. `skipToken` until a project is resolved.
-  // While loading (or on error) `data` is undefined → the default layout shows.
-  const { data: structure } = useGetStructureQuery(
-    projectId ? { projectId } : skipToken,
-  );
-  const cards = navCardsFromStructure(structure);
-
   return (
     <>
       <PageHeader
@@ -22,7 +25,7 @@ export function Dashboard() {
         subtitle="Manage your account settings."
       />
       <div className="grid gap-4 sm:grid-cols-2">
-        {cards.map((c) => (
+        {CARDS.map((c) => (
           <Link key={c.to} to={c.to}>
             <Card className="h-full transition hover:shadow-md">
               <h3 className="text-base font-medium text-fg">{c.title}</h3>

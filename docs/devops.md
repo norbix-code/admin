@@ -57,8 +57,8 @@ warning: it runs the standalone server (`node server.js`).
 - **Tell the project.** Save that address in Norbix Cloud as the project's
   "Admin portal URL" (README, step 6). Without it social sign-in refuses
   the portal's address and e-mail links do not point to your portal.
-- **Server-sent events.** The AI chat streams through `/api/proxy/*`. The
-  portal already sends `X-Accel-Buffering: no`; do not add response buffering
+- **Server-sent events.** The proxy passes an event stream through as it is
+  written and sends `X-Accel-Buffering: no`; do not add response buffering
   or compression for `text/event-stream` in your proxy.
 - **Outgoing calls.** The portal must reach `HUB_BASE_URL`, `API_BASE_URL`
   and, for a project with its own API host, `pr-<32 hex>.api.<domain>` (same
@@ -69,7 +69,7 @@ warning: it runs the standalone server (`node server.js`).
 - The image has a `HEALTHCHECK` on `GET /`. It answers `200` as soon as the
   server is up.
 - A portal that is **not set up** also answers `200` on `/` — with the setup
-  screen. To check the setup, call `GET /api/structure`: `503` with
+  screen. To check the setup, call `GET /api/bootstrap`: `503` with
   `"error": "portal-not-set-up"` and the missing variable while it is not set
   up, `200` when it is. The server log has one line starting with
   `[admin-portal] Not set up:`.

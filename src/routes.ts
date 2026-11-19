@@ -17,7 +17,5 @@ export const ROUTES = {
   PROFILE: '/profile',
   SECURITY: '/security',
   SECURITY_PASSWORD: '/security/password',
-  SECURITY_2FA: '/security/2fa',
   PREFERENCES: '/preferences',
-  PRIVACY: '/privacy',
 } as const;

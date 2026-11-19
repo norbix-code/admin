@@ -29,7 +29,6 @@ import storage from 'redux-persist/lib/storage';
 import { setupListeners } from '@reduxjs/toolkit/query';
 
 import { norbixApi } from '@/services/norbix';
-import { api } from '@/services/api';
 import { publicApi } from '@/services/publicApi';
 import { hub } from '@/services/hub';
 import { portalApi } from '@/services/portalApi';
@@ -37,25 +36,20 @@ import auth from '@/features/auth/slice';
 import config from '@/config/slice';
 import { IS_DEV } from '@/config/env';
 import project from '@/features/project/slice';
-import aiChat from '@/features/aiChat/slice';
 import { listenerMiddleware } from '@/app/middlewares/listener';
 import { rtkQueryErrorLogger } from '@/app/middlewares/errorCatching';
 
 // ── combine all reducers ────────────────────────────────────────────
-// Data-plane endpoints come from the Norbix SDK slice (@norbix.ai/react-redux):
-// login, logout, profile, preferences. The app-owned `api` slice still backs
-// the endpoints the SDK does NOT yet expose (password change/reset, 2FA,
-// compliance) — these move to the SDK once @norbix.ai/ts adds them, with no
-// store restructuring. `hub` (/echo) and `publicApi` (login-config + legal)
-// remain app-owned by design.
+// Data-plane endpoints (sign-in, sign-out, profile, preferences, passkeys) come
+// from the Norbix SDK slice `norbixApi` (@norbix.ai/react-redux). `hub`
+// (/echo), `publicApi` (legal documents, invitation) and `portalApi` (the
+// portal's own backend) are small slices of this app.
 const reducers = combineReducers({
   config,
   project,
   auth,
-  aiChat,
   [hub.reducerPath]: hub.reducer,
   [norbixApi.reducerPath]: norbixApi.reducer,
-  [api.reducerPath]: api.reducer,
   [publicApi.reducerPath]: publicApi.reducer,
   [portalApi.reducerPath]: portalApi.reducer,
 });
@@ -68,12 +62,8 @@ const persistConfig = {
   // RTK Query caches must NOT be persisted — they re-fetch on load and a stale
   // persisted cache would serve outdated data. Same rule as the Cloud store.
   blacklist: [
-    // The open chat is re-read from the entries endpoint on load; a persisted
-    // transcript or a half-sent turn would only resurrect stale state.
-    'aiChat',
     hub.reducerPath,
     norbixApi.reducerPath,
-    api.reducerPath,
     publicApi.reducerPath,
     portalApi.reducerPath,
   ],
@@ -112,7 +102,6 @@ export const createStore = (
         .concat(
           hub.middleware,
           norbixApi.middleware,
-          api.middleware,
           publicApi.middleware,
           portalApi.middleware,
           rtkQueryErrorLogger,

@@ -28,7 +28,6 @@ own services — the reason this is a backend and not just static files.
 | Concern | Where | Auth |
 | --- | --- | --- |
 | Privileged catalog (roles, marketing-pref structure) | **backend** (`/api/bootstrap`) | service-user API key (server env) |
-| Portal layout (which pages are on) | **backend** (`/api/structure`) | service-user API key (server env) |
 | Brand + auth config | backend (folded into `/api/bootstrap`) | served once for fewer round-trips |
 | Everything else: user data, login, echo | **browser → `/api/proxy/*` → gateway** | the user's JWT (via the SDK) |
 
@@ -59,20 +58,6 @@ It degrades gracefully: when one read fails, the others still come back and
 
 The project is always the configured one. A `projectId` in the query is not
 read.
-
-## `/api/structure`
-
-`GET /api/structure` → the portal layout: the project's display name and the
-list of modules (Profile, Security, Preferences, …) that are on. The backend
-calls the Hub's
-
-```
-GET {hub}/v3/account/projects/{projectId}/admin-portal/structure
-```
-
-as the service user, for the configured project. When the call fails it
-answers a default layout (all standard pages on) with
-`warnings: ["structure-unreachable"]`, so the portal still renders.
 
 ## `/api/proxy/{hub|api}/…` (reverse proxy)
 
@@ -105,15 +90,14 @@ callback on the shared API host ([`social-sign-in.md`](./social-sign-in.md)).
 
 - It belongs to the project's **Admin Portal service user** (role
   `AdminPortalManager`), which you create or assign in Norbix Cloud → Project
-  Settings → Admin Portal. Its scope is narrow and read-only: the portal
-  structure, project roles, the marketing-preference structure and the project
-  read.
+  Settings → Admin Portal. Its scope is narrow and read-only: project roles, the
+  marketing-preference structure and the project read.
 - The key is shown **once**, when it is created. Norbix stores only a hash. To
   change it, create a new key for the service user and put the new value into
   `API_KEY`.
 - The SDK sends it as `Authorization: Bearer <key>` (see `Norbix({ apiKey })`).
-- It is **server-only**: `/api/bootstrap` and `/api/structure` use it; the
-  proxy never adds it to a user's call.
+- It is **server-only**: `/api/bootstrap` uses it; the proxy never adds it to
+  a user's call.
 
 ## Configuration
 
@@ -136,7 +120,7 @@ the project, and neither does a header or a query value.
 - every page shows the setup screen "This portal is not set up yet", which
   names the variable to fix (`app/SetupRequired.tsx`). A `PROJECT_ID` that is
   not a project id counts as missing. No value is ever shown;
-- `/api/bootstrap`, `/api/structure` and `/api/proxy/*` answer
+- `/api/bootstrap` and `/api/proxy/*` answer
   `503 { "error": "portal-not-set-up", "missing": ["PROJECT_ID" | "API_KEY"], "message": "…" }`
   and call nothing upstream;
 - the server logs one line, once per process:
@@ -190,8 +174,7 @@ docker run -p 3100:3100 -e PROJECT_ID=pr_… -e API_KEY=… my-admin-portal
 ## Migration status (Vite → Next, phased)
 
 - ✅ Next app router + `output: 'standalone'` config, root tsconfig, Docker.
-- ✅ `/api/bootstrap` (brand + auth + roles + marketing-pref catalog) and
-  `/api/structure`.
+- ✅ `/api/bootstrap` (brand + auth + roles + marketing-pref catalog).
 - ✅ `/api/proxy/*` full reverse proxy; browser SDK points at it.
 - ⏳ Port the existing screens (`src/features/*`, `src/App.tsx` router) into
   `app/` routes. The Vite entry still exists during migration; the old build
