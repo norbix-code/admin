@@ -19,6 +19,7 @@ import type {
   ProjectBranding,
   ProjectConfig,
   ProjectConfigBody,
+  PublicAiChat,
   SocialProviderId,
   PublicSocialSignIn,
   AuthMethod,
@@ -107,6 +108,7 @@ function merge(
     branding: { ...base.branding, ...(override.branding ?? {}) },
     auth: { ...base.auth, ...(override.auth ?? {}) },
     links: { ...base.links, ...(override.links ?? {}) },
+    aiChat: override.aiChat ?? base.aiChat,
   };
 }
 
@@ -126,12 +128,37 @@ interface PublicConfigResponse {
     logoUrl?: string;
     iconUrl?: string;
   } | null;
+  // End-user AI chat: on/off + assistants (id, name, welcome). The
+  // assistants list is empty while the chat is off. Absent on older gateways.
+  aiChat?: {
+    enabled?: boolean;
+    assistants?: { id?: string; name?: string; welcome?: string | null }[];
+  } | null;
   auth?: {
     socialProviders?: SocialProviderId[];
     socialSignIn?: PublicSocialSignIn[] | null;
     passkey?: boolean;
     methods?: AuthMethod[] | null;
     passwordPolicy?: PasswordPolicy | null;
+  };
+}
+
+/** Normalise the public `aiChat` section; off unless it says enabled. */
+export function toAiChat(
+  raw: NonNullable<PublicConfigResponse['aiChat']>,
+): PublicAiChat {
+  const enabled = raw.enabled === true;
+  return {
+    enabled,
+    assistants: enabled
+      ? (raw.assistants ?? [])
+          .filter((a) => a.id)
+          .map((a) => ({
+            id: a.id!,
+            name: a.name || 'Assistant',
+            welcome: a.welcome || undefined,
+          }))
+      : [],
   };
 }
 
@@ -146,6 +173,8 @@ async function loadDynamicConfig(
   const r = (await res.json()) as PublicConfigResponse;
 
   const out: Partial<ProjectConfigBody> = {};
+
+  if (r.aiChat) out.aiChat = toAiChat(r.aiChat);
 
   // The readable project name comes back top-level (not brand-gated). Prefer it
   // for the display name so the portal shows the project title even when brand

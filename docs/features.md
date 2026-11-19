@@ -79,3 +79,13 @@ SIGNED IN (anything else redirects to /sign-in)
 
 Not set up (PROJECT_ID or API_KEY missing) → the setup screen on every path
 ```
+
+## AI chat (optional)
+
+When the project turns on the end-user AI chat (Norbix Cloud → Project
+Settings → AI → "Show AI chat"), a signed-in user sees a chat button in the
+corner. The chat opens in a side panel or full screen, streams the answer as
+it is written, lists earlier chats and shows what the assistant remembers.
+When the chat is off, nothing about it is shown. The code is in
+`src/features/aiChat/`.
+

@@ -86,11 +86,30 @@ export interface ProjectLinks {
   privacyUrl?: string;
 }
 
+/** One assistant an end user can chat with (public, never the prompt / LLM). */
+export interface PublicAiAssistant {
+  id: string;
+  name: string;
+  welcome?: string;
+}
+
+/**
+ * End-user AI chat from the public config (`aiChat`). The chat launcher
+ * renders only when `enabled`; `assistants` is empty while the chat is off.
+ * Absent → treated as off.
+ */
+export interface PublicAiChat {
+  enabled: boolean;
+  assistants: PublicAiAssistant[];
+}
+
 export interface ProjectConfig {
   projectId: string;
   branding: ProjectBranding;
   auth: ProjectAuthOptions;
   links: ProjectLinks;
+  /** End-user AI chat on/off + assistants. Absent → chat off. */
+  aiChat?: PublicAiChat;
 }
 
 /** A project config without the project id: the part defaults and the public config fill in. */

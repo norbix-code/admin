@@ -32,6 +32,8 @@ import { norbixApi } from '@/services/norbix';
 import { publicApi } from '@/services/publicApi';
 import { hub } from '@/services/hub';
 import { portalApi } from '@/services/portalApi';
+import { api } from '@/services/api';
+import aiChat from '@/features/aiChat/slice';
 import auth from '@/features/auth/slice';
 import config from '@/config/slice';
 import { IS_DEV } from '@/config/env';
@@ -42,13 +44,16 @@ import { rtkQueryErrorLogger } from '@/app/middlewares/errorCatching';
 // ── combine all reducers ────────────────────────────────────────────
 // Data-plane endpoints (sign-in, sign-out, profile, preferences, passkeys) come
 // from the Norbix SDK slice `norbixApi` (@norbix.ai/react-redux). `hub`
-// (/echo), `publicApi` (legal documents, invitation) and `portalApi` (the
-// portal's own backend) are small slices of this app.
+// (/echo), `publicApi` (legal documents, invitation), `portalApi` (the
+// portal's own backend) and `api` (the end-user AI chat) are small slices of
+// this app.
 const reducers = combineReducers({
   config,
   project,
   auth,
+  aiChat,
   [hub.reducerPath]: hub.reducer,
+  [api.reducerPath]: api.reducer,
   [norbixApi.reducerPath]: norbixApi.reducer,
   [publicApi.reducerPath]: publicApi.reducer,
   [portalApi.reducerPath]: portalApi.reducer,
@@ -62,6 +67,10 @@ const persistConfig = {
   // RTK Query caches must NOT be persisted — they re-fetch on load and a stale
   // persisted cache would serve outdated data. Same rule as the Cloud store.
   blacklist: [
+    // The open chat is re-read from the entries endpoint on load; a persisted
+    // transcript or a half-sent turn would only resurrect stale state.
+    'aiChat',
+    api.reducerPath,
     hub.reducerPath,
     norbixApi.reducerPath,
     publicApi.reducerPath,
@@ -101,6 +110,7 @@ export const createStore = (
         .prepend(listenerMiddleware.middleware)
         .concat(
           hub.middleware,
+          api.middleware,
           norbixApi.middleware,
           publicApi.middleware,
           portalApi.middleware,

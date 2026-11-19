@@ -2,7 +2,8 @@
 
 A ready-made portal for the **users of your Norbix project**. They create an
 account or sign in, change their password and passkeys, edit their profile,
-and choose which messages they get. It also shows your terms and privacy policy on a public
+choose which messages they get, and — when you turn it on — chat with your
+project's AI assistant. It also shows your terms and privacy policy on a public
 page.
 
 This repository is a **starter**. You clone it and host it on your own address
@@ -124,7 +125,7 @@ All docs: [`docs/`](./docs).
 | `app/api/proxy/` | The proxy the browser calls; it forwards to Norbix. |
 | `app/api/bootstrap/` | Server-only data read with the API key. |
 | `app/lib/` | Server helpers: settings check, project API address. |
-| `src/features/` | The screens: `auth` (sign-in, sign-up, password, passkeys, invitation), `profile`, `preferences`, `legal`, `dashboard`. |
+| `src/features/` | The screens: `auth` (sign-in, sign-up, password, passkeys, invitation), `profile`, `preferences`, `legal`, `dashboard`, and the optional `aiChat`. |
 | `src/components/` | Shared UI: buttons, form fields, layouts, icons. |
 | `src/services/` | Calls to Norbix through the SDK. |
 | `src/config/` | Reading the project's public settings (brand, sign-in options). |

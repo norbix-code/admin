@@ -11,6 +11,7 @@ import { selectProjectBranding } from '@/features/project/slice';
 import { projectNameOf } from '@/config/projectConfig';
 import { reset } from '@/features/auth/slice';
 import { useLogoutMutation } from '@/services/norbix';
+import { AiChatLauncher } from '@/features/aiChat/launcher';
 
 export function AuthLayout({
   children,
@@ -117,6 +118,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <main className="flex-1 px-8 py-8">
         <div className="mx-auto max-w-3xl">{children}</div>
       </main>
+      {/* End-user AI chat: renders only when the project turned it on. */}
+      <AiChatLauncher />
     </div>
   );
 }
