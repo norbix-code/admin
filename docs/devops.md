@@ -1,7 +1,30 @@
 # Admin Portal — devops
 
-Mirrors the **Cloud** image + k8s layout under `/norbix/devops`. The Admin
-image is a static SPA served by nginx, exactly like Cloud.
+The Admin image is one Next.js Node server (UI + the `/api/*` backend routes)
+on port `3100`. Sections 2–4 below were written for the first, nginx-based
+plan and are kept for the self-hosted layout only; what the Managed Service
+really runs is in "Managed Service production" right here.
+
+## Managed Service production (checked 2026-11-19)
+
+- **Where.** One `admin` Deployment in the control region only (Virginia, EKS,
+  namespace `norbix-production`), built from `devops/k8s/deployments/managed-service/admin.yaml`
+  by the CDK (`devops/aws_cdk/lib/deployments/kubernetesManifests.ts`). A
+  processing region (Frankfurt) runs only `api` and `mq`; it has no admin pod,
+  no admin DNS name and no admin certificate, on purpose.
+- **Address.** `https://pr-<32 hex>.admin.norbix.ai/` per project (the
+  project's `canonicalAdminUrl`); `*.admin.norbix.ai` and `admin.norbix.ai`
+  are on the control region's load balancer and certificate.
+- **Config.** `HUB_BASE_URL=https://hub.<domain>`, `API_BASE_URL=https://api.<domain>`,
+  no `API_KEY` (a managed pod holds no project key).
+- **A project of another region.** The portal backend sends its API calls to
+  `pr-<hex>.api.<domain>`, which DNS points at the project's region
+  (`docs/backend.md`, "An install with regions"). The end user's requests
+  therefore pass through the portal pod in the control region on their way to
+  the project's region.
+- **Release.** The image is built from this repo's `ms-v*` tag by
+  `devops/release/deploy-release.sh eks <version>` together with the gateway
+  and Cloud. Staging (`norbix.io`) does not build the admin image.
 
 ## 1. Docker image
 
