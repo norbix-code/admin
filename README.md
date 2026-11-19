@@ -74,6 +74,9 @@ npm run build
 PROJECT_ID=pr_... API_KEY=... npm run start
 ```
 
+(`npm run start` prints a warning about the "standalone" build. That is
+expected; the portal still runs.)
+
 The portal listens on port `3100`. Point your address (for example
 `admin.example.com`) at it and use https. More in
 [`docs/devops.md`](./docs/devops.md).

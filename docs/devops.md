@@ -9,8 +9,8 @@ port `3100`. You host it. It needs two values, `PROJECT_ID` and `API_KEY`
 `deployments/Dockerfile` (multi-stage):
 
 1. **build** — `node:22-alpine`, `npm ci`, `next build` (standalone output).
-   One optional build arg: `NEXT_PUBLIC_ADMIN_CONFIG_MODE` (`dynamic` default,
-   or `static`).
+   One optional build arg: `NEXT_PUBLIC_ADMIN_CONFIG_MODE` (`dynamic`
+   default; for `static` see [`login-resolution.md`](./login-resolution.md)).
 2. **runtime** — `node server.js` as an unprivileged user on `3100`.
 
 ```bash
@@ -44,6 +44,10 @@ npm ci
 npm run build
 PROJECT_ID=pr_... API_KEY=... npm run start     # http://localhost:3100
 ```
+
+`npm run start` prints a warning that `next start` is not meant for the
+`standalone` build. The portal still runs. The Docker image does not have the
+warning: it runs the standalone server (`node server.js`).
 
 ## 3. In front of it
 

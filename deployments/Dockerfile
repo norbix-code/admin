@@ -21,6 +21,7 @@
 # One browser value is a build arg, because Next inlines NEXT_PUBLIC_* into the
 # bundle at BUILD time:
 #   NEXT_PUBLIC_ADMIN_CONFIG_MODE  — 'dynamic' (default) or 'static'
+#                                    (see docs/login-resolution.md)
 #
 #   docker build -f deployments/Dockerfile -t my-admin-portal .
 #   docker run -p 3100:3100 -e PROJECT_ID=pr_xxxx -e API_KEY=... my-admin-portal

@@ -73,6 +73,13 @@ gated by two project opt-in flags — full design in
   `config/projects/{id}.json`, **never** calling the endpoint. For full control
   and the fastest paint. You can also edit components/CSS.
 
+> **Not complete in the Next.js build.** The bundled
+> `config/projects/{id}.json` file is read with a Vite-only feature
+> (`import.meta.glob`, `src/config/projectConfig.ts`). Under Next.js the file
+> is not loaded: `static` then means "the neutral defaults, no call", and in
+> `dynamic` mode the static layer is skipped. Use `dynamic` unless you wire
+> the file in yourself.
+
 ### Resolution order (dynamic mode)
 
 ```

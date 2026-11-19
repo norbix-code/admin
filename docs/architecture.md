@@ -116,7 +116,8 @@ are supported (see [`login-resolution.md`](./login-resolution.md) for detail).
 
 2. **Static.** You ship a `config/projects/{projectId}.json` describing the
    login screen and redeploy. The portal renders from the bundled config
-   **without** a network call — fastest paint.
+   **without** a network call — fastest paint. (Not complete in the Next.js
+   build: see the note in [`login-resolution.md`](./login-resolution.md).)
 
 ## 5. Deployment
 

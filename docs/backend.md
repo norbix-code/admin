@@ -161,7 +161,7 @@ Build time (inlined into the browser bundle by `next build`):
 
 | Var | Purpose |
 | --- | --- |
-| `NEXT_PUBLIC_ADMIN_CONFIG_MODE` | `dynamic` (default) or `static` — see [`login-resolution.md`](./login-resolution.md). |
+| `NEXT_PUBLIC_ADMIN_CONFIG_MODE` | `dynamic` (default). `static` is not complete in the Next.js build — see [`login-resolution.md`](./login-resolution.md). |
 
 > `IS_DEV` (in `src/config/env.ts`) is a separate, build-time "local dev build"
 > flag (`NODE_ENV !== 'production'`). It only toggles Redux DevTools and the
