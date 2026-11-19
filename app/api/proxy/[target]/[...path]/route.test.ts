@@ -62,12 +62,12 @@ const call = (path: string[], headers: Record<string, string>) =>
 describe('BFF proxy', () => {
   it('forwards nb-project-id, the bearer token and the SSE reconnect id; drops cookies', async () => {
     const res = await call(['v3', 'membership', 'users', 'me'], {
-      'nb-project-id': 'pr_abc',
-      'norbix-project-id': 'pr_abc',
+      'nb-project-id': 'pr_Igqs1AfB4AZIwIJ7K9xgs',
+      'norbix-project-id': 'pr_Igqs1AfB4AZIwIJ7K9xgs',
       authorization: 'Bearer t1',
       'last-event-id': '42',
       cookie: 'portal=secret',
-      'x-norbix-project': 'pr_abc',
+      'x-norbix-project': 'pr_Igqs1AfB4AZIwIJ7K9xgs',
     });
 
     expect(res.status).toBe(200);
@@ -80,8 +80,8 @@ describe('BFF proxy', () => {
       cookie: seen.headers?.cookie,
       xNorbixProject: seen.headers?.['x-norbix-project'],
     }).toEqual({
-      nbProjectId: 'pr_abc',
-      norbixProjectId: 'pr_abc',
+      nbProjectId: 'pr_Igqs1AfB4AZIwIJ7K9xgs',
+      norbixProjectId: 'pr_Igqs1AfB4AZIwIJ7K9xgs',
       authorization: 'Bearer t1',
       lastEventId: '42',
       cookie: undefined,

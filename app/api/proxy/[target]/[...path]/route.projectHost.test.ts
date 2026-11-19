@@ -1,8 +1,8 @@
 // BFF proxy when the Hub's /echo announces `apiUrlTemplate`: an API call goes
 // to the CONFIGURED project's own host (pr-<hex>.api.<domain>) and not to the
 // shared API_BASE_URL, which refuses a project another region processes
-// (CM-ERRORS-PROJECTS-040). The project is PROJECT_ID only: not a header, not
-// the address the portal was opened at.
+// (CM-ERRORS-PROJECTS-040). The project is PROJECT_ID only: not the address
+// the portal was opened at; a header naming another project is refused.
 //
 // A local HTTP server stands in for the Hub and for both API hosts. `fetch` is
 // wrapped only to send the made-up host names to that server; the test reads
@@ -112,15 +112,29 @@ describe('BFF proxy, Hub with per-project API hosts', () => {
     ]);
   });
 
-  it('ignores a project header when it picks the host, and still forwards it', async () => {
-    await call('http://portal.test/api/proxy/api/v3/membership/users/me', {
-      'norbix-project-id': OTHER_PROJECT,
-    });
+  it('refuses a call whose project header names another project, and calls nothing', async () => {
+    const res = await call(
+      'http://portal.test/api/proxy/api/v3/membership/users/me',
+      { 'norbix-project-id': OTHER_PROJECT },
+    );
 
-    expect(asked).toEqual([
-      `http://${LABEL}.api.norbix.test/v3/membership/users/me`,
+    expect([res.status, await res.json(), asked]).toEqual([
+      400,
+      {
+        error: 'other-project',
+        message: 'This portal serves only its own project.',
+      },
+      [],
     ]);
-    expect(seenHeaders['norbix-project-id']).toBe(OTHER_PROJECT);
+  });
+
+  it('accepts the configured project written as its host label', async () => {
+    const res = await call(
+      'http://portal.test/api/proxy/api/v3/membership/users/me',
+      { 'nb-project-id': LABEL },
+    );
+
+    expect(res.status).toBe(200);
   });
 
   it('uses the configured project when the call names none', async () => {

@@ -9,8 +9,10 @@
 // configured project's own host (pr-<hex>.api.<domain>, from the Hub's /echo
 // `apiUrlTemplate`): the shared host refuses a project another region
 // processes. See app/lib/projectApi.ts. The project is always the configured
-// one (PROJECT_ID) — never the address the portal was opened at, never a
-// header. While the portal is not set up the proxy answers 503.
+// one (PROJECT_ID) — never the address the portal was opened at. A request
+// whose project header names another project is refused with 400, so this
+// portal cannot be used to reach a different project. While the portal is
+// not set up the proxy answers 503.
 //
 // The user's own JWT is forwarded as-is (Authorization), so authenticated user
 // data still flows on the user's behalf — the backend does not inject the
@@ -21,6 +23,7 @@
 import { NextRequest } from 'next/server';
 import { NORBIX_HUB_URL } from '@norbix.ai/ts';
 import { apiBaseForProject } from '../../../../lib/projectApi';
+import { runtimeProjectId } from '../../../../lib/runtimeProject';
 import {
   notSetUpResponse,
   readyPortalSetup,
@@ -81,6 +84,28 @@ function isEventStream(res: Response): boolean {
     .startsWith('text/event-stream');
 }
 
+/** The request headers that name a project. */
+const PROJECT_HEADERS = [
+  'norbix-project-id',
+  'nb-project-id',
+  'x-cm-projectid',
+];
+
+/**
+ * The project header value that is not the configured project, if any.
+ * Both `pr_<base62>` and `pr-<32 hex>` count as the same project.
+ */
+export function otherProjectHeader(
+  headers: Headers,
+  configuredProjectId: string,
+): string | null {
+  for (const name of PROJECT_HEADERS) {
+    const value = headers.get(name)?.trim();
+    if (value && runtimeProjectId(value) !== configuredProjectId) return value;
+  }
+  return null;
+}
+
 async function baseFor(
   target: string,
   projectId: string,
@@ -96,6 +121,16 @@ async function handle(
 ): Promise<Response> {
   const setup = readyPortalSetup();
   if (!setup) return notSetUpResponse();
+
+  if (otherProjectHeader(req.headers, setup.projectId)) {
+    return Response.json(
+      {
+        error: 'other-project',
+        message: 'This portal serves only its own project.',
+      },
+      { status: 400 },
+    );
+  }
 
   const { target, path } = await ctx.params;
   const base = await baseFor(target, setup.projectId);
