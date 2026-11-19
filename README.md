@@ -1,8 +1,8 @@
 # Norbix Admin Portal
 
-A ready-made portal for the **users of your Norbix project**. They sign in,
-change their password and passkeys, edit their profile, and choose which
-messages they get. It also shows your terms and privacy policy on a public
+A ready-made portal for the **users of your Norbix project**. They create an
+account or sign in, change their password and passkeys, edit their profile,
+and choose which messages they get. It also shows your terms and privacy policy on a public
 page.
 
 This repository is a **starter**. You clone it and host it on your own address
@@ -27,8 +27,9 @@ Open your project in Norbix Cloud and go to **Project Settings → Admin
 Portal**.
 
 1. Create (or assign) the **Admin Portal service user**.
-2. Copy its **API key**. It is shown only once. Keep it secret.
-3. Copy the **project id**. It starts with `pr_`.
+2. Issue an **API key** for it. It is shown only once. Keep it secret.
+3. The page shows a ready **`.env` file** with your project id and the key.
+   Copy it.
 
 ### 3. Fill in `.env`
 
@@ -36,7 +37,7 @@ Portal**.
 cp .env.example .env
 ```
 
-Open `.env` and set the two values:
+Paste the file from Norbix Cloud, or set the two values yourself:
 
 ```bash
 PROJECT_ID=pr_...
@@ -80,8 +81,8 @@ The portal listens on port `3100`. Point your address (for example
 
 ### 6. Tell Norbix where your portal is
 
-In Norbix Cloud, save your portal's address (for example
-`https://admin.example.com`) as the project's **Admin portal URL**.
+In Norbix Cloud, open **Project Settings → Brand** and save your portal's
+address (for example `https://admin.example.com`) as **Admin portal URL**.
 
 This does two things for you:
 
@@ -104,10 +105,31 @@ It is your copy, so everything. The usual things:
   [`docs/social-sign-in.md`](./docs/social-sign-in.md).
 - **Pages.** The screens are in `src/features/` and the routes in
   `src/App.tsx`. What each page does: [`docs/features.md`](./docs/features.md).
+  To add a page: write the component in `src/features/<name>/`, add its path
+  to `src/routes.ts`, its `<Route>` to `src/App.tsx`, and a menu entry in the
+  sidebar (`src/components/layouts.tsx`).
+- **Who may create an account.** The sign-up page (`/sign-up`) works when your
+  project lets anyone sign up (Norbix Cloud → Membership → Authorization).
+  Otherwise it shows the project's message, and people join by invitation.
 - **Your own server code.** Add routes under `app/api/`. How the portal's
   backend works: [`docs/backend.md`](./docs/backend.md).
 
 All docs: [`docs/`](./docs).
+
+## Project layout
+
+| Folder | What is in it |
+| --- | --- |
+| `app/` | The Next.js server: the page shell, the "not set up" page and the backend routes. |
+| `app/api/proxy/` | The proxy the browser calls; it forwards to Norbix. |
+| `app/api/bootstrap/` | Server-only data read with the API key. |
+| `app/lib/` | Server helpers: settings check, project API address. |
+| `src/features/` | The screens: `auth` (sign-in, sign-up, password, passkeys, invitation), `profile`, `preferences`, `legal`, `dashboard`. |
+| `src/components/` | Shared UI: buttons, form fields, layouts, icons. |
+| `src/services/` | Calls to Norbix through the SDK. |
+| `src/config/` | Reading the project's public settings (brand, sign-in options). |
+| `tests/e2e/` | Browser tests (Playwright) against a fake Norbix. |
+| `docs/` | How things work, in more detail. |
 
 ## Settings
 
