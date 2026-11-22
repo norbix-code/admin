@@ -16,6 +16,7 @@ import type {
   StartChatTurnRequest,
   StartChatTurnResponse,
   ChatEntryFeedback,
+  ChatActionDecision,
 } from './types';
 
 export const chatApi = api
@@ -115,6 +116,21 @@ export const chatApi = api
         }),
       }),
 
+      // The user's own decision on a held action: 'apply' runs it once, as
+      // the user; 'dismiss' runs nothing. Answers with the entry's new status.
+      decideChatAction: builder.mutation<
+        { id?: string; status?: string },
+        { sessionId: string; entryId: string; decision: ChatActionDecision }
+      >({
+        query: ({ sessionId, entryId, decision }) => ({
+          url: `/ai/chat/sessions/${encodeURIComponent(
+            sessionId,
+          )}/actions/${encodeURIComponent(entryId)}`,
+          method: 'POST',
+          body: { decision },
+        }),
+      }),
+
       getChatMemory: builder.query<ListChatMemoryResponse, void>({
         query: () => ({
           url: '/ai/chat/memory',
@@ -142,6 +158,7 @@ export const {
   useArchiveChatSessionMutation,
   useDeleteChatSessionMutation,
   useSetChatEntryFeedbackMutation,
+  useDecideChatActionMutation,
   useGetChatMemoryQuery,
   useForgetChatMemoryNoteMutation,
 } = chatApi;

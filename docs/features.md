@@ -105,3 +105,10 @@ it is written, lists earlier chats and shows what the assistant remembers.
 When the chat is off, nothing about it is shown. The code is in
 `src/features/aiChat/`.
 
+When the assistant wants to use a tool that changes something — sends an
+email, pays, creates or deletes a record — the chat does not run it. It shows
+a card with the tool and its exact values, and the tool runs only when the
+user presses **Apply** (**Dismiss** runs nothing). The assistant cannot press
+Apply itself, so text hidden in a file, a picture or a web page can suggest a
+change but never make one.
+

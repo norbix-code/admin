@@ -74,6 +74,22 @@ export interface NoticeEntry extends ChatEntryBase {
   level: 'info' | 'warning' | 'error' | string;
 }
 
+/**
+ * `action.pending` — a tool call the chat held instead of running: it changes
+ * something (sends, pays, creates, deletes), so it runs only when the user
+ * presses Apply. The model cannot approve it (gateway
+ * docs/tasks/ai-chat-held-actions.md).
+ */
+export interface ActionPendingEntry extends ChatEntryBase {
+  kind: 'action.pending';
+  tool: string;
+  /** The prepared arguments, a JSON object as text. */
+  argumentsJson: string;
+  status: 'open' | 'applied' | 'skipped' | 'failed' | string;
+}
+
+export type ChatActionDecision = 'apply' | 'dismiss';
+
 /** A kind this build does not render (developer kinds, future kinds). */
 export interface UnknownEntry extends ChatEntryBase {
   [field: string]: unknown;
@@ -83,6 +99,7 @@ export type ChatEntry =
   | UserMessageEntry
   | AssistantTextEntry
   | NoticeEntry
+  | ActionPendingEntry
   | UnknownEntry;
 
 export interface GetChatEntriesResponse {

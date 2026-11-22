@@ -2,7 +2,7 @@
  * One transcript row, dispatched by `kind` — the same registry pattern as the
  * output factory (cloud entries/EntryRenderers.tsx), cut to what an end user
  * sees: their message, the assistant's reply (through the output factory,
- * streaming while `isStreaming`), and notices. Any other kind (developer
+ * streaming while `isStreaming`), notices, and actions held for their Apply. Any other kind (developer
  * kinds, `conversation.snapshot`, future kinds) renders nothing — never an
  * error.
  */
@@ -12,6 +12,7 @@ import { AssistantOutput } from '../output/OutputBlocks';
 import { useSetChatEntryFeedbackMutation } from '../chatApi';
 import { feedbackSet, isLocalEntryId } from '../slice';
 import type {
+  ActionPendingEntry,
   AssistantTextEntry,
   ChatEntry,
   ChatEntryFeedback,
@@ -19,6 +20,7 @@ import type {
   UserMessageEntry,
 } from '../types';
 import { EntryToolbar } from './EntryToolbar';
+import { HeldAction } from './HeldAction';
 import { copyTextOf, hasFeedbackAffordance, viewBlockJsonAt } from './copyText';
 
 /** Like / Dislike for one entry: optimistic, rolled back when the call fails. */
@@ -135,6 +137,9 @@ export const EntryView = memo(function EntryView({ id }: { id: string }) {
       break;
     case 'notice':
       body = <Notice entry={entry as NoticeEntry} />;
+      break;
+    case 'action.pending':
+      body = <HeldAction entry={entry as ActionPendingEntry} />;
       break;
     default:
       return null;
